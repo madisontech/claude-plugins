@@ -1,0 +1,14 @@
+{
+  "name": "madison-tools",
+  "owner": {
+    "name": "Madison Group Enterprises"
+  },
+  "plugins": [
+    {
+      "name": "bi-assistant",
+      "source": "./bi-assistant",
+      "description": "Business Intelligence analysis — datawarehouse queries, Power BI, reporting",
+      "version": "1.0.0"
+    }
+  ]
+}
