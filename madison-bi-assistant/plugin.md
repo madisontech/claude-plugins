@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 3.0.0-trial
+**Version:** 3.2.0
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
@@ -59,6 +59,31 @@ XLSX, DOCX, PPTX production with MGE brand standards.
 Loads: CLAUDE.md + context.md + output-standards.md (~15k tokens with query).
 Output: branded file in deliverables/. Default: XLSX. Works standalone or as post-processing.
 
+### `/finance` — Finance Analysis (Router)
+Budget variance, AP ageing, supplier payments, GL reconciliation. Routes to the right finance sub-domain.
+Loads: CLAUDE.md + context.md + query-patterns.md + query-patterns-finance.md (~14k tokens).
+Output: chat table with headline metrics, anomalies, and drill-down options.
+
+### `/budget-variance-analysis` — Budget vs GL Actuals
+Budget vs actual variance with automated decomposition by account category, cost centre, or monthly trend.
+Loads: CLAUDE.md + context.md + query-patterns.md + query-patterns-finance.md (~14k tokens).
+Output: material variances ranked by impact with favourable/unfavourable classification.
+
+### `/supplier-payment-optimisation` — Supplier Payment Analysis
+DPO analysis, AP ageing, term extension opportunities, cash flow projection.
+Loads: CLAUDE.md + context.md + query-patterns.md + query-patterns-finance.md (~14k tokens).
+Output: payment metrics, term extension candidates, cash flow pipeline.
+
+### `/ap-ageing-analysis` — AP Ageing Analysis
+Ageing profile, overdue risk, supplier concentration (Pareto), DPO trends.
+Loads: CLAUDE.md + context.md + query-patterns.md + query-patterns-finance.md (~14k tokens).
+Output: net balance ageing by bucket, concentration risk, trend anomalies.
+
+### `/gl-reconciliation-support` — GL Reconciliation
+GL-to-subledger reconciliation for AR and AP. Control account mapping, reconciling items.
+Loads: CLAUDE.md + context.md + query-patterns.md + query-patterns-finance.md (~14k tokens).
+Output: monthly comparison with material differences flagged and reconciling item categories.
+
 ### `/initiate` — Catch-All Router
 Any question that doesn't obviously map to a specific skill.
 Loads: CLAUDE.md + context.md + query-patterns.md, then additional refs after routing.
@@ -68,7 +93,8 @@ Output: depends on mode selected.
 
 | File | Purpose | Loaded By |
 |------|---------|-----------|
-| `references/query-patterns.md` | Verified SQL templates | query, investigate, analyse, initiate |
+| `references/query-patterns.md` | Verified SQL templates (revenue, inventory, AR, pipeline) | query, investigate, analyse, finance, initiate |
+| `references/query-patterns-finance.md` | Finance SQL templates (budget, AP, DPO, GL recon) | finance, budget-variance-analysis, supplier-payment-optimisation, ap-ageing-analysis, gl-reconciliation-support, initiate |
 | `references/schema-inventory.md` | Full 59-table inventory (on demand) | Any skill when needed |
 | `references/investigation.md` | ETL tracing, medallion architecture | investigate, initiate |
 | `references/advanced-analytics.md` | Statistical methods, Python patterns | analyse, initiate |
@@ -78,13 +104,14 @@ Output: depends on mode selected.
 
 ```
 plugins/madison-bi-assistant/
-├── .claude-plugin/plugin.json          # Native plugin manifest (v3.0.0-trial)
+├── .claude-plugin/plugin.json          # Native plugin manifest (v3.2.0)
 ├── .mcp.json                           # MCP server config (Databricks SQL)
 ├── plugin.md                           # This file — setup guide, skill index
 ├── CLAUDE.md                           # Plugin identity, disposition, quality gates
 ├── context.md                          # Canonical SQL rules, business context, 14 core tables
 ├── references/
-│   ├── query-patterns.md               # Verified SQL templates
+│   ├── query-patterns.md               # Verified SQL templates (revenue, inventory, AR, pipeline)
+│   ├── query-patterns-finance.md       # Finance SQL templates (budget, AP, DPO, GL recon)
 │   ├── schema-inventory.md             # Full 59-table inventory (on demand)
 │   ├── investigation.md                # ETL tracing, medallion architecture, control table
 │   ├── advanced-analytics.md           # Statistical methods, Python patterns
@@ -94,5 +121,10 @@ plugins/madison-bi-assistant/
     ├── investigate/SKILL.md            # Discrepancy debugging
     ├── analyse/SKILL.md                # Advanced analytics
     ├── format/SKILL.md                 # Branded deliverable production
+    ├── finance/SKILL.md                # Finance analysis router
+    ├── budget-variance-analysis/SKILL.md        # Budget vs GL variance
+    ├── supplier-payment-optimisation/SKILL.md   # DPO, term extension, cash flow
+    ├── ap-ageing-analysis/SKILL.md              # AP ageing, concentration, DPO trend
+    ├── gl-reconciliation-support/SKILL.md       # GL-to-subledger reconciliation
     └── initiate/SKILL.md               # Catch-all router
 ```

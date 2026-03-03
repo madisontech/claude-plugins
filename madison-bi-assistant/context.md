@@ -23,6 +23,7 @@ All columns use **Pascal Case with backtick quoting**: `` `Invoice Date Key` ``,
 | **M3 Core** (invoices, salesorders, purchaseorders, deliverynotes, pickslips, preallocations, creditnotes, quotedmargin) | STRING | LONG | `CAST(dim.Key AS STRING)` |
 | **M3 Inventory** (inventoryhistory, inventoryhistorybymonth, inventoryprojection) | STRING | LONG | `CAST(dim.Key AS STRING)` |
 | **GL/Budget** (generalledger, budget) | INT | LONG | No cast needed (implicit coercion) |
+| **AR/AP** (accountsreceivable, accountspayable) | STRING | LONG | `CAST(dim.Key AS STRING)` — same as M3 Core |
 | **Salesforce** (opportunities, opportunitylineitem, quote) | LONG | LONG | No cast needed |
 | **Other** (historicaldemand) | STRING | STRING | No cast needed |
 
@@ -91,7 +92,7 @@ checklist as a code block. Never change scope without the analyst's approval.
 ## Business Context
 
 ### Fiscal Calendar
-July–June fiscal year. `Fiscal Year` is INT (2025, not "FY25"). `Fiscal Year Label` = "FY25".
+July–June fiscal year. `Fiscal Year` is INT (2025, not "FY25"). `Fiscal Year Label` = "2024-2025" (not "FY25").
 ```
 FiscalYear  = YEAR(add_months(date, -6))    -- FY25 = Jul 2024 – Jun 2025
 FiscalMonth = MONTH(add_months(date, -6))   -- 1=July, 12=June
@@ -281,7 +282,10 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | `fact.itembalance` | Stock on hand (bin-level) | Product, Warehouse, Location |
 | `fact.itemwarehouse` | Inventory health (ageing, turnover) | Product, Warehouse |
 | `fact.generalledger` | GL entries (post May 2024) | Account, CostCentre, Division, Calendar |
+| `fact.budget` | Budget by period/account (FY2024, Div 1 only) | Account, CostCentre, Division, Calendar (via `Budget Period Key` = `Month Key`) |
 | `fact.accountsreceivable` | AR open items (post May 2024) | Customer, Currency, Calendar |
+| `fact.accountspayable` | AP open items (post May 2024) | Supplier, Currency, Calendar |
+| `fact.paymentpredictor` | Cash flow lifecycle projection (843 rows) | Supplier, Calendar |
 | `fact.salestargets` | Sales targets by employee/month | Employee, Calendar |
 
 ### Core Dimensions
@@ -291,6 +295,7 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | `dim.customer` | Customer master (M3+SF merged) | `Customer Key`, `Customer Code`, `Customer Name` |
 | `dim.employee` | Salespeople + BU attribution | `Employee Key`, `Business Unit` (TRIM!) |
 | `dim.calendar` | Date dimension (FY Jul start) | `Date Key`, `Fiscal Year`, `Fiscal Year Label` |
+| `dim.supplier` | Supplier master | `Supplier Key` (BIGINT), `Supplier Name` |
 | `dim.warehouse` | Warehouse/facility reference | `Warehouse Key`, `Warehouse` |
 | `dim.supersessions` | Product replacement links | `Product Key` (new), `Superseded Key` (old) |
 
@@ -307,4 +312,8 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | Multiply FX rate | Inverts conversion | `amount / rate` |
 | Include CONO or deleted on gold tables | Column doesn't exist | These are pre-filtered in gold layer |
 | Use `fact.aropenitems` or `fact.targets` | Tables don't exist | `fact.accountsreceivable`, `fact.salestargets` |
+| Use `fact.supplierpayments` or `dim.paymentterms` | Tables don't exist | Use `fact.accountspayable` + `fact.paymentpredictor`; payment terms are STRING codes on AP fact |
+| Reference AR `Aging Bucket` or `Open Amount` | Columns don't exist | Compute ageing from `Due Date` (STRING) via `DATEDIFF(CURRENT_DATE(), TO_DATE(due_date, 'yyyyMMdd'))`. Use `AUD Amount` for balances |
+| Reference AP ageing columns | No pre-computed ageing on AP | Same computed DATEDIFF pattern. AP dates (`Due Date`, `Invoice Date`) are STRING YYYYMMDD |
+| Display `Fiscal Year Label` as "FY25" | Actual format is "2024-2025" | Use `Fiscal Year Label` for display; `Fiscal Year` (INT) for filtering |
 | Filter GL with `Division = '100'` (string code) | Zero rows — GL uses integer surrogate `Division Key` | JOIN `dim.division` on `Division Key`, filter on `Division Code`, or use verified surrogate key |

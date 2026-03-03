@@ -37,16 +37,19 @@ GROUP BY TRIM(p.`Business Unit`)
 ORDER BY OnHandValue DESC
 ```
 
-## AR Ageing
+## AR Ageing (Computed — No Pre-Built Ageing Columns)
+
+AR has no `Aging Bucket` or `Open Amount` columns. Compute ageing from `Due Date` (STRING YYYYMMDD).
 
 ```sql
 SELECT
     c.`Customer Name`,
-    SUM(CASE WHEN ar.`Aging Bucket` = 'Current' THEN ar.`Open Amount` END) AS Current_,
-    SUM(CASE WHEN ar.`Aging Bucket` = '30 Days' THEN ar.`Open Amount` END) AS Days_30,
-    SUM(CASE WHEN ar.`Aging Bucket` = '60 Days' THEN ar.`Open Amount` END) AS Days_60,
-    SUM(CASE WHEN ar.`Aging Bucket` = '90+ Days' THEN ar.`Open Amount` END) AS Days_90Plus,
-    SUM(ar.`Open Amount`) AS Total
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) <= 0 THEN ar.`AUD Amount` END) AS Current_,
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) BETWEEN 1 AND 30 THEN ar.`AUD Amount` END) AS Days_1_30,
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) BETWEEN 31 AND 60 THEN ar.`AUD Amount` END) AS Days_31_60,
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) BETWEEN 61 AND 90 THEN ar.`AUD Amount` END) AS Days_61_90,
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) > 90 THEN ar.`AUD Amount` END) AS Days_90Plus,
+    SUM(ar.`AUD Amount`) AS Total
 FROM datawarehouse.fact.accountsreceivable ar
 LEFT JOIN datawarehouse.dim.customer c
     ON ar.`Customer Key` = CAST(c.`Customer Key` AS STRING)
@@ -112,7 +115,7 @@ WHERE c.`Fiscal Year` = 2025
   AND c.`Date Key` <= CAST(DATE_FORMAT(CURRENT_DATE(), 'yyyyMMdd') AS INT)
 
 -- Display label
-SELECT c.`Fiscal Year Label`            -- returns 'FY25'
+SELECT c.`Fiscal Year Label`            -- returns '2024-2025' (not 'FY25')
 ```
 
 ## Inventory Hierarchy
