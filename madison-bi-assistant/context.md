@@ -29,6 +29,37 @@ All columns use **Pascal Case with backtick quoting**: `` `Invoice Date Key` ``,
 **If a join returns zero rows, check the CAST first.** M3 facts store surrogate keys as STRING;
 dimensions store them as LONG. Omitting the CAST silently returns empty results.
 
+### GL Division Key Cross-Reference
+
+The GL fact table (`fact.generalledger`) uses `Division Key` — an integer surrogate key that
+maps to `dim.division.`Division Key``, **not** the string division code used in M3 invoice/order
+facts. Filtering GL with `WHERE Division = '100'` returns zero rows.
+
+Verified mapping (from `datawarehouse.dim.division`, 2026-03-03):
+
+| Division Key | Division Code | Division Name |
+|---|---|---|
+| 1 | 100 | Madison Group Enterprises Pty Ltd |
+| 2 | 200 | Madison Technologies Limited |
+| 3 | 500 | Kallipr Holdings Pty Ltd |
+| 4 | 505 | Kallipr IP Pty Ltd |
+| 5 | 520 | Kallipr Pty Ltd |
+| 6 | 550 | Kallipr Regional Pty Ltd |
+| 7 | 999 | MGE Consolidation |
+| 8 | 560 | Kallipr Americas LLC |
+| 9 | 300 | Madison Connectivity Pty Ltd |
+| 10 | 400 | CtrlOps Pty Ltd |
+
+To filter GL by division, either JOIN to the dimension or use the verified surrogate key:
+```sql
+-- Option A: JOIN to dim.division
+JOIN datawarehouse.dim.division d ON gl.`Division Key` = d.`Division Key`
+WHERE d.`Division Code` = '100'
+
+-- Option B: Use verified surrogate key directly
+WHERE gl.`Division Key` = 1  -- Division 100 (MGE Operating)
+```
+
 ### Sentinel Values
 Every fact-to-dim lookup wraps in `COALESCE(..., -1)`. No dimension has a -1 row.
 - **INNER JOIN** silently drops unmatched records (invoices: 3,973 customer orphans; GL: 1.4M cost centre orphans)
@@ -46,12 +77,13 @@ Exception: `invoices.`Invoice Date Key`` is DECIMAL — still joins correctly bu
 
 ## Scope Discipline (Internal Checklist)
 
-Before writing any query, resolve these four dimensions internally:
+Before writing any query, resolve these five dimensions internally:
 
-- **Division:** 100=MAV, 200=MT, 505/520=MEX, 550=MCS, or all
-- **Business Unit:** MAV, MT, MEX, MCS, KPR, or all — and which attribution path (employee/product/customer)
+- **Division:** 100 (MGE operating — all BUs), 5xx (Kallipr), or specific entity code. This is the legal entity filter.
+- **Business Unit:** MAV, MT, MEX, MCS, KPR, or all — via attribution path (Employee BU for revenue, Product BU for operations). This isolates BUs *within* a division.
 - **Time Period:** FY year or date range (YYYYMMDD format)
 - **Filters:** Any additional constraints (product line, customer segment, etc.)
+- **Future date cap:** Apply `Date Key <= today` for period totals (see Fiscal Calendar section)
 
 Then confirm the scope to the user in one plain-English sentence. Never render this
 checklist as a code block. Never change scope without the analyst's approval.
@@ -65,20 +97,50 @@ FiscalYear  = YEAR(add_months(date, -6))    -- FY25 = Jul 2024 – Jun 2025
 FiscalMonth = MONTH(add_months(date, -6))   -- 1=July, 12=June
 ```
 
+**Future Date Exclusion:** When calculating period totals (MTD, QTD, YTD), always cap at
+today's date to exclude uncommitted future data:
+```sql
+-- YTD capped at today
+WHERE c.`Fiscal Year` = 2025
+  AND c.`Date Key` <= CAST(DATE_FORMAT(CURRENT_DATE(), 'yyyyMMdd') AS INT)
+
+-- Alternative: use the calendar flag
+WHERE c.`Is Future Date` = FALSE
+```
+Without this filter, YTD totals may include placeholder or forecast data for future periods.
+
 ### Division = Legal Entity
+
+Division is the legal entity / company code in M3. It does **not** map 1:1 to Business Units
+for analysis purposes.
 
 | Code | Entity | Abbrev |
 |------|--------|--------|
-| 100 | MadisonAV Pty Ltd | MAV |
-| 200 | Madison Technologies (Australia) | MT |
-| 300 | Total Product Marketing | TPM |
-| 400 | Kallipr Pty Ltd | KPR |
-| 500 | Madison Group Enterprises | MGE |
-| 505 | Madison Express Holdings | MEX |
-| 520 | Madison Express | MEX |
-| 550 | Madison Connectivity Solutions | MCS |
-| 560 | Madison NZ Ltd | MNZ |
-| 999 | Dummy Division | ZZZ — always exclude |
+| 100 | Madison Group Enterprises Pty Ltd | MGE |
+| 200 | Madison Technologies Limited | MT |
+| 300 | Madison Connectivity Pty Ltd | MCS |
+| 400 | CtrlOps Pty Ltd | — |
+| 500 | Kallipr Holdings Pty Ltd | KPR |
+| 505 | Kallipr IP Pty Ltd | KPR |
+| 520 | Kallipr Pty Ltd | KPR |
+| 550 | Kallipr Regional Pty Ltd | KPR |
+| 560 | Kallipr Americas LLC | KPR |
+| 999 | MGE Consolidation | ZZZ — always exclude |
+
+**Division 100 is the primary operating division.** When filtering to Division 100, you get
+ALL four business units (MAV, MEX, MT, MCS). To isolate a specific BU within Division 100,
+use the attribution path (Employee BU for revenue, Product BU for operations), not the
+division code.
+
+**MCS Division Split (2025):** MCS split out from Division 100 into its own legal entity —
+Division 300 (Madison Connectivity Pty Ltd). Sales still come through both Division 100 and
+Division 300 for MCS. When analysing MCS, check both divisions or use Employee BU attribution
+to capture the full picture.
+
+Standard MGE filters:
+- `WHERE Division = '100'` — for M3 invoice/order facts (all BUs, but note MCS split)
+- `WHERE TRIM(e.`Business Unit`) = 'MT'` — to isolate a specific BU within Division 100
+- `WHERE Division IN ('100', '300')` — when you need MCS activity from both entities
 
 ### Dual Attribution Model
 
@@ -113,9 +175,27 @@ Plus: +5% FREDON surcharge, +4% MI Retail surcharge (conditional)
 
 Querying `TotalValue - TotalCost` without `RebateAmount` **overstates margin**.
 
+**Cost field:** When querying item-level cost, use `UCDCOS` (delivery cost from MITBAL).
+`UCUCOS` is a stale unit cost that may not reflect current pricing. The pre-calculated
+`Total Cost` on `fact.invoices` already uses the correct cost basis.
+
 ### FX Conversion
 `LocalAmount = ForeignAmount / ExchangeRate` — **division, not multiplication.**
 Rate = foreign currency units per 1 AUD.
+
+### Unit of Measure Conversions
+
+Purchase and delivery quantities have two representations:
+
+| Fact Table | Raw Fields | Converted Fields | Rule |
+|-----------|-----------|-----------------|------|
+| `fact.purchaseorders` | `Order Qty` | `Order Qty Converted` | Use Converted for stock impact analysis |
+| `fact.deliverynotes` | `Delivered Qty`, `Received Qty` | `Delivered Qty Converted`, `Received Qty Converted` | Use Converted for inventory reconciliation |
+| `fact.salesorders`, `fact.invoices`, `fact.itembalance` | Single qty fields | — | Already in stock UOM |
+
+Conversions between purchase units (RO, BOX, BAG) and stock units (EA, M) are applied
+during ETL. Always use the **Converted** quantity when assessing stock impact, supply chain
+metrics, or comparing purchase to sales volumes.
 
 ## Universal Exclusions
 
@@ -130,6 +210,11 @@ or `AND deleted = FALSE` in queries against gold-layer fact tables — these col
 
 ## Data Boundaries and Coverage Gaps
 
+### Refresh Schedule
+Sales, Finance, and Operations semantic models refresh hourly from 10:00 AM to 8:00 PM AEST,
+Monday to Friday. Data queried outside this window or before the first refresh reflects the
+previous business day's final state. Weekend data is not refreshed until Monday morning.
+
 | Constraint | Impact |
 |-----------|--------|
 | **GL/AR/AP: post-2024-05-01 only** | `generalledger WHERE EGACDT > 20240430`, same for AR/AP. No historical financials before May 2024 |
@@ -138,8 +223,26 @@ or `AND deleted = FALSE` in queries against gold-layer fact tables — these col
 | **Customer BU: 54% NULL** | Majority of customers have no BU via SF Account Owner path |
 | **Product BU: 47% Unknown** | `<Unknown>` is the most common value in dim.product.`Business Unit` |
 | **Opportunity Product Key: 54.6% NULL** | SF opportunity line items often missing product link |
-| **Customer State: truncated** | NS not NSW, VI not VIC, QL not QLD. 32% empty. NZ is country not state |
+| **Customer State: truncated** | See state normalisation mapping below |
 | **Legacy ERP backfill** | fact.invoices and fact.salesorders contain backfilled data from pre-M3. Pattern breaks near migration date may be system artefact, not business shift |
+
+**Customer State Normalisation:** `dim.customer.State` is truncated to 2 characters. Apply
+this mapping for reporting:
+```sql
+CASE TRIM(State)
+  WHEN 'NS' THEN 'NSW'
+  WHEN 'VI' THEN 'VIC'
+  WHEN 'QL' THEN 'QLD'
+  WHEN 'WA' THEN 'WA'
+  WHEN 'SA' THEN 'SA'
+  WHEN 'TA' THEN 'TAS'
+  WHEN 'NT' THEN 'NT'
+  WHEN 'AC' THEN 'ACT'
+  WHEN 'NZ' THEN 'NZ'   -- Country, not state
+  ELSE State
+END AS State_Normalised
+```
+32% of customer records have no state. `NZ` indicates New Zealand (country), not a state.
 
 ## Product Supersession
 
@@ -204,3 +307,4 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | Multiply FX rate | Inverts conversion | `amount / rate` |
 | Include CONO or deleted on gold tables | Column doesn't exist | These are pre-filtered in gold layer |
 | Use `fact.aropenitems` or `fact.targets` | Tables don't exist | `fact.accountsreceivable`, `fact.salestargets` |
+| Filter GL with `Division = '100'` (string code) | Zero rows — GL uses integer surrogate `Division Key` | JOIN `dim.division` on `Division Key`, filter on `Division Code`, or use verified surrogate key |
