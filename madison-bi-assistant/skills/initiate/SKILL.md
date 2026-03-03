@@ -4,8 +4,18 @@ description: Analyse MGE datawarehouse data — revenue, margin, inventory, AR, 
 
 You are performing analysis for Madison Group Enterprises.
 
-Read `soul.md` for your disposition. Read `context.md` for data rules.
-These are non-negotiable — every query must follow the SQL rules in context.md.
+## Boot Sequence (mandatory — complete before any analysis)
+
+Read ALL of the following files into context before writing a single query or presenting
+assumptions. Do not proceed until every file is loaded. Skipping any file risks incorrect
+queries, missing filters, or wrong column names.
+
+1. Read `soul.md` — disposition and communication style
+2. Read `context.md` — SQL rules, join casting, exclusions, business context (non-negotiable)
+3. Read `references/schema-reference.md` — table inventory, join map, enums, derivations, anti-patterns
+4. Read `references/datawarehouse-analysis.md` — verified query patterns and fiscal year filtering
+
+Then load the mode-specific references below based on routing.
 
 ## Mode Routing
 
@@ -14,19 +24,25 @@ Assess the question and route yourself. The analyst does not choose the mode —
 ### Descriptive Mode
 **Trigger:** "What is X?", "Show me Y by Z", breakdowns, comparisons, reporting
 
+**Additional reads before starting:**
+- Read `references/dashboard-conventions.md` — chart selection, number presentation, table formatting
+- Read `references/mge-report-formatter.md` — brand identity for DOCX/XLSX/PPTX output (if producing formatted deliverables)
+
+**Workflow:**
 1. **Assumptions** — Present a brief assumptions block (division, BU, time period, attribution path, margin measure, key filters). Proceed immediately — don't wait for approval. The analyst will interject if something's off.
 2. **Approach** — Describe the query strategy before writing SQL.
 3. **Execute** — Write and run the query. Verify row counts and totals.
 4. **Present** — Lead with the finding. Provide context and benchmarks.
 5. **Drill-down** — Suggest the next question they haven't asked yet.
 
-Reference: `references/datawarehouse-analysis.md` for query patterns.
-Reference: `references/schema-reference.md` for table/join/enum details.
-Reference: `references/dashboard-conventions.md` for chart and dashboard output standards.
-
 ### Investigation Mode
 **Trigger:** "Why is X different?", "Something looks wrong", discrepancy debugging
 
+**Additional reads before starting:**
+- Read `references/investigation-methodology.md` — ETL tracing patterns
+- Read `references/databricks-etl-troubleshooting.md` — medallion architecture
+
+**Workflow:**
 1. **Observe** — Reproduce the reported discrepancy with a query.
 2. **Hypothesise** — List the most likely causes (join issue, filter gap, ETL lag, data quality).
 3. **Trace** — Follow the data through the layers. Use GoldIntegrationQuery from
@@ -34,12 +50,14 @@ Reference: `references/dashboard-conventions.md` for chart and dashboard output 
 4. **Confirm** — Identify the root cause. Always return to `datawarehouse.*` views for the
    authoritative answer.
 
-Reference: `references/investigation-methodology.md` for ETL tracing patterns.
-Reference: `references/databricks-etl-troubleshooting.md` for medallion architecture.
-
 ### Advanced Analytics Mode
 **Trigger:** "What would happen if?", forecasting, segmentation, patterns, statistical analysis
 
+**Additional reads before starting:**
+- Read `references/advanced-analytics.md` — statistical methods and Python patterns
+- Read `references/dashboard-conventions.md` — chart selection, number presentation, table formatting
+
+**Workflow:**
 1. **Frame** — State the analytical question as a testable hypothesis.
 2. **Assess** — Check data availability, quality gates, coverage limitations.
 3. **Extract** — SQL query to pull data into a working dataset.
@@ -48,9 +66,6 @@ Reference: `references/databricks-etl-troubleshooting.md` for medallion architec
 5. **Validate** — Challenge results: sensitivity checks, sanity tests, confidence bounds.
 6. **Interpret** — Translate statistical findings into business implications.
 7. **Present** — Deliver findings with methodology notes, confidence levels, caveats.
-
-Reference: `references/advanced-analytics.md` for statistical methods and Python patterns.
-Reference: `references/dashboard-conventions.md` for chart and dashboard output standards.
 
 ## Universal Rules
 
@@ -63,5 +78,3 @@ Reference: `references/dashboard-conventions.md` for chart and dashboard output 
 - **Pre-query QA:** Row count range, date min/max, null audit on key columns, duplicate check on grain
 - **Post-join QA:** Row count before/after (fan-out = bad key), null check from right table, sanity-check one known aggregate
 - **Output:** Write queries and results to files, not terminal. Present key findings in chat.
-
-Reference: `references/mge-report-formatter.md` for brand identity when producing DOCX/XLSX/PPTX.
