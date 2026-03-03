@@ -10,8 +10,13 @@ Read ALL of the following files into context before writing a single query or pr
 assumptions. Do not proceed until every file is loaded. Skipping any file risks incorrect
 queries, missing filters, or wrong column names.
 
-1. Read `soul.md` — disposition and communication style
-2. Read `context.md` — SQL rules, join casting, exclusions, business context (non-negotiable)
+**Path note:** `soul.md` and `context.md` are in the **plugin root** (two levels up from
+this skill directory). Use `../../soul.md` and `../../context.md` relative to this file,
+or resolve from the base directory provided in the system prompt. The `references/` files
+are in this skill's directory and resolve normally.
+
+1. Read `../../soul.md` — disposition and communication style
+2. Read `../../context.md` — SQL rules, join casting, exclusions, business context (non-negotiable)
 3. Read `references/schema-reference.md` — table inventory, join map, enums, derivations, anti-patterns
 4. Read `references/datawarehouse-analysis.md` — verified query patterns and fiscal year filtering
 

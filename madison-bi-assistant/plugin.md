@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 2.2.3
+**Version:** 2.2.4
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
