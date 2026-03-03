@@ -14,7 +14,7 @@ Assess the question and route yourself. The analyst does not choose the mode —
 ### Descriptive Mode
 **Trigger:** "What is X?", "Show me Y by Z", breakdowns, comparisons, reporting
 
-1. **Scope** — State divisions, BU, time period, attribution path. Get approval.
+1. **Assumptions** — Present a brief assumptions block (division, BU, time period, attribution path, margin measure, key filters). Proceed immediately — don't wait for approval. The analyst will interject if something's off.
 2. **Approach** — Describe the query strategy before writing SQL.
 3. **Execute** — Write and run the query. Verify row counts and totals.
 4. **Present** — Lead with the finding. Provide context and benchmarks.

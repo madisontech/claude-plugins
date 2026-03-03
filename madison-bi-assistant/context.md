@@ -46,16 +46,18 @@ Exception: `invoices.`Invoice Date Key`` is DECIMAL — still joins correctly bu
 
 ## Scope Discipline
 
-Before any query, state explicitly:
+Present assumptions before querying. Format as a compact block the analyst can scan at a glance:
 
 ```
 Division:      [100 = MAV | 200 = MT | 505/520 = MEX | 550 = MCS | all]
-Business Unit: [MAV | MT | MEX | MCS | KPR | all] — specify attribution path
-Time Period:   [FY__ or date range YYYYMMDD–YYYYMMDD]
+Business Unit: [MAV | MT | MEX | MCS | KPR | all] — state attribution path
+Time Period:   [FY__ or calendar month/date range]
+Margin:        [Net Sales Margin (default) | Sales Margin (gross)]
 Filters:       [any additional constraints]
 ```
 
-Never change scope without the analyst's approval.
+Then proceed — don't ask for approval. The assumptions block gives the analyst a clear
+interception point. Scope changes mid-analysis still require explicit approval.
 
 ## Business Context
 
@@ -95,24 +97,34 @@ Default: Employee BU for revenue, Product BU for inventory/operations. Always st
 
 ### Revenue Composition (Invoice Anatomy)
 
-```
-InvoiceValue  = qty x unit price              (OINVOL type '31')
-+ HeaderCharge = header-level charges           (type '60')
-+ LineCharge   = line-level charges             (type '67')
-= TotalValue   (revenue recognised)
+| Column | Business Term | Definition |
+|--------|--------------|------------|
+| `Value` | Invoice Value | qty × unit price (base, before charges) |
+| `Line Charges` | Line Charges | Line-level charges (type '67') |
+| `Header Charges` | Header Charges | Header-level charges (type '60') |
+| `Total Value` | **Sales Value / Revenue** | Value + Line Charges + Header Charges |
+| `Total Cost` | **COGS** | Standard cost − supplier rebate + COGS charge |
+| `Restocking Charge` | Restocking Charge | Customer restocking fee (informational — not deducted from margin) |
+| `Freight Charge` | Freight Charge | Freight charge (informational — not deducted from margin) |
+| `Rebate Amount` | **Rebate** | 4-tier waterfall + surcharges (see below) |
+| `Margin` | **Net Sales Margin** | Total Value − Total Cost − Rebate Amount |
+| `Margin Percent` | Net Sales Margin % | Margin / Total Value (pre-calculated) |
 
-TotalCost     = standard cost - supplier rebate + COGS charge
-Margin        = TotalValue - TotalCost - RebateAmount
-```
+**Two margin measures — always clarify which:**
+- **Sales Margin** (gross) = `Total Value` − `Total Cost` — before rebate deductions
+- **Net Sales Margin** = `Margin` column = `Total Value` − `Total Cost` − `Rebate Amount`
 
-**Margin includes rebate deductions.** The 4-tier rebate waterfall:
+**Default:** Report **Net Sales Margin** (`Margin` column) unless the analyst requests gross.
+When reporting both, label explicitly as "Sales Margin" and "Net Sales Margin".
+
+**Rebate waterfall** (4 tiers applied in order):
 1. Exclusive brand rebate (customer-brand-specific)
 2. Non-exclusive brand rebate (brand-level)
 3. Wholesale group accrual rate
 4. Rebate member accrual rate
 Plus: +5% FREDON surcharge, +4% MI Retail surcharge (conditional)
 
-Querying `TotalValue - TotalCost` without `RebateAmount` **overstates margin**.
+Querying `TotalValue - TotalCost` without `RebateAmount` **overstates margin** — you get Sales Margin, not Net Sales Margin.
 
 ### FX Conversion
 `LocalAmount = ForeignAmount / ExchangeRate` — **division, not multiplication.**
