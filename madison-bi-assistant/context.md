@@ -44,18 +44,17 @@ Exception: `invoices.`Invoice Date Key`` is DECIMAL — still joins correctly bu
 - Test with LIMIT before running full queries on large tables
 - Use APPROX_COUNT_DISTINCT for dashboard-level counts
 
-## Scope Discipline
+## Scope Discipline (Internal Checklist)
 
-Before any query, state explicitly:
+Before writing any query, resolve these four dimensions internally:
 
-```
-Division:      [100 = MAV | 200 = MT | 505/520 = MEX | 550 = MCS | all]
-Business Unit: [MAV | MT | MEX | MCS | KPR | all] — specify attribution path
-Time Period:   [FY__ or date range YYYYMMDD–YYYYMMDD]
-Filters:       [any additional constraints]
-```
+- **Division:** 100=MAV, 200=MT, 505/520=MEX, 550=MCS, or all
+- **Business Unit:** MAV, MT, MEX, MCS, KPR, or all — and which attribution path (employee/product/customer)
+- **Time Period:** FY year or date range (YYYYMMDD format)
+- **Filters:** Any additional constraints (product line, customer segment, etc.)
 
-Never change scope without the analyst's approval.
+Then confirm the scope to the user in one plain-English sentence. Never render this
+checklist as a code block. Never change scope without the analyst's approval.
 
 ## Business Context
 
