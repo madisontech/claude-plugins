@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 2.2.4
+**Version:** 2.3.0
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
@@ -62,7 +62,7 @@ One entry point. The model self-routes based on question type:
 
 ```
 plugins/madison-bi-assistant/
-├── .claude-plugin/plugin.json          # Native plugin manifest (v2.2.0)
+├── .claude-plugin/plugin.json          # Native plugin manifest (v2.3.0)
 ├── .mcp.json                           # MCP server config (Databricks SQL)
 ├── plugin.md                           # This file
 ├── soul.md                             # Analyst disposition and quality gates

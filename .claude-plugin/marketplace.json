@@ -8,7 +8,7 @@
       "name": "madison-bi-assistant",
       "source": "./madison-bi-assistant",
       "description": "Madison BI Assistant — datawarehouse analysis, investigation, and advanced analytics for Madison Group Enterprises",
-      "version": "2.2.0"
+      "version": "2.3.0"
     }
   ]
 }
