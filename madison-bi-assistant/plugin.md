@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 2.3.0
+**Version:** 3.0.0-trial
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
@@ -34,48 +34,65 @@ or Fabric XMLA endpoints. Use `connection_operations` -> `ListLocalInstances` ->
 
 | File | Purpose |
 |------|---------|
-| `soul.md` | Analyst disposition, communication style, quality gates |
-| `context.md` | Data rules, SQL conventions, business context, table quick reference |
+| `CLAUDE.md` | Plugin identity, disposition, communication style, quality gates |
+| `context.md` | Canonical SQL rules, join casting, exclusions, business context, 14 core tables |
 
-## Skill
+## Skills
 
-### `/initiate` — Unified Analysis Skill
+### `/query` — Descriptive Analysis
+"What is X?", breakdowns, comparisons, reporting.
+Loads: CLAUDE.md + context.md + query-patterns.md (~9k tokens).
+Output: chat table with key findings.
 
-One entry point. The model self-routes based on question type:
+### `/investigate` — Discrepancy Debugging
+"Why is X different?", data quality issues, ETL tracing.
+Loads: CLAUDE.md + context.md + query-patterns.md + investigation.md (~12k tokens).
+Output: investigation narrative with root cause analysis.
 
-| Mode | Trigger | Workflow |
-|------|---------|---------|
-| **Descriptive** | "What is X?", breakdowns, comparisons | scope -> query -> present -> drill-down |
-| **Investigation** | "Why is X different?", discrepancies | observe -> hypothesise -> trace -> confirm |
-| **Advanced Analytics** | "What would happen if?", forecasting | frame -> assess -> extract -> compute -> validate -> interpret |
+### `/analyse` — Advanced Analytics
+Forecasting, segmentation, statistical patterns, hypothesis testing.
+Loads: CLAUDE.md + context.md + query-patterns.md + advanced-analytics.md (~10k tokens).
+Output: Python analysis with files in scratch/.
 
-**Skill references:**
-- `schema-reference.md` — Definitive table/join/enum/derivation reference (59 tables)
-- `datawarehouse-analysis.md` — Verified query patterns
-- `investigation-methodology.md` — ETL tracing, discrepancy debugging
-- `advanced-analytics.md` — Statistical methods, Python/Polars patterns
-- `databricks-etl-troubleshooting.md` — Medallion architecture, control table
-- `dashboard-conventions.md` — Chart selection, data presentation, visual output standards
-- `mge-report-formatter.md` — Brand identity, colour palette, typography, layout, Python constants
+### `/format` — Branded Deliverables
+XLSX, DOCX, PPTX production with MGE brand standards.
+Loads: CLAUDE.md + context.md + output-standards.md (~15k tokens with query).
+Output: branded file in deliverables/. Default: XLSX. Works standalone or as post-processing.
+
+### `/initiate` — Catch-All Router
+Any question that doesn't obviously map to a specific skill.
+Loads: CLAUDE.md + context.md + query-patterns.md, then additional refs after routing.
+Output: depends on mode selected.
+
+## Shared References (on-demand)
+
+| File | Purpose | Loaded By |
+|------|---------|-----------|
+| `references/query-patterns.md` | Verified SQL templates | query, investigate, analyse, initiate |
+| `references/schema-inventory.md` | Full 59-table inventory (on demand) | Any skill when needed |
+| `references/investigation.md` | ETL tracing, medallion architecture | investigate, initiate |
+| `references/advanced-analytics.md` | Statistical methods, Python patterns | analyse, initiate |
+| `references/output-standards.md` | Brand identity, chart rules, XLSX/DOCX/PPTX layout | format, initiate |
 
 ## File Manifest
 
 ```
 plugins/madison-bi-assistant/
-├── .claude-plugin/plugin.json          # Native plugin manifest (v2.3.0)
+├── .claude-plugin/plugin.json          # Native plugin manifest (v3.0.0-trial)
 ├── .mcp.json                           # MCP server config (Databricks SQL)
-├── plugin.md                           # This file
-├── soul.md                             # Analyst disposition and quality gates
-├── context.md                          # Data rules, SQL conventions, business context
+├── plugin.md                           # This file — setup guide, skill index
+├── CLAUDE.md                           # Plugin identity, disposition, quality gates
+├── context.md                          # Canonical SQL rules, business context, 14 core tables
+├── references/
+│   ├── query-patterns.md               # Verified SQL templates
+│   ├── schema-inventory.md             # Full 59-table inventory (on demand)
+│   ├── investigation.md                # ETL tracing, medallion architecture, control table
+│   ├── advanced-analytics.md           # Statistical methods, Python patterns
+│   └── output-standards.md             # Brand identity, chart rules, deliverable layout
 └── skills/
-    └── initiate/
-        ├── SKILL.md                    # Unified skill: mode routing + 3 workflows
-        └── references/
-            ├── schema-reference.md     # Definitive table/join/enum reference
-            ├── datawarehouse-analysis.md  # Verified query patterns
-            ├── investigation-methodology.md  # ETL tracing, discrepancy debugging
-            ├── advanced-analytics.md   # Statistical methods, Python patterns
-            ├── databricks-etl-troubleshooting.md  # Medallion architecture
-            ├── dashboard-conventions.md  # Chart and dashboard output standards
-            └── mge-report-formatter.md # Brand identity for deliverables
+    ├── query/SKILL.md                  # Descriptive analysis
+    ├── investigate/SKILL.md            # Discrepancy debugging
+    ├── analyse/SKILL.md                # Advanced analytics
+    ├── format/SKILL.md                 # Branded deliverable production
+    └── initiate/SKILL.md               # Catch-all router
 ```

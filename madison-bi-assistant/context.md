@@ -1,14 +1,14 @@
 # Madison BI Assistant — Context
 
 > Loaded at boot. Every rule here is verified against the live datawarehouse as of 2026-03-03.
-> Detailed per-table reference: `skills/initiate/references/schema-reference.md`
+> Full 59-table inventory: `references/schema-inventory.md` (load on demand, not at boot).
 
 ## Source of Truth
 
 **Always query:** `datawarehouse.fact.*` and `datawarehouse.dim.*`
 **Never query:** `fact.*`, `dim.*`, `*_silver.*`, `*_bronze.*` (intermediate layers)
 
-59 live tables: 20 dimensions, 39 facts. Full inventory in schema-reference.md.
+59 live tables: 20 dimensions, 39 facts. Full inventory in `references/schema-inventory.md`.
 
 ## SQL Rules (Critical — Queries Fail Without These)
 
@@ -121,11 +121,13 @@ Rate = foreign currency units per 1 AUD.
 ## Universal Exclusions
 
 Apply to every M3-sourced query:
-- `WHERE CONO = 100` — company filter (always)
-- `AND deleted = FALSE` — soft-delete from M3 replication
 - Division 999 excluded from invoices (`Division <> '999'`)
-- Credit card surcharges excluded (`Product NOT LIKE 'MCC%' AND NOT LIKE 'KCC%'`)
+- Credit card surcharges excluded (join to dim.product, filter `Product Number NOT LIKE 'MCC%' AND NOT LIKE 'KCC%'`)
 - Valid salesperson: code contains hyphen (`LIKE '%-%'`)
+
+**Gold-layer note:** `CONO` and `deleted` columns exist on silver/bronze layers but are
+pre-filtered in the gold `datawarehouse.fact.*` views. Do not include `WHERE CONO = 100`
+or `AND deleted = FALSE` in queries against gold-layer fact tables — these columns do not exist there.
 
 ## Data Boundaries and Coverage Gaps
 
@@ -146,7 +148,7 @@ Apply to every M3-sourced query:
 `dim.product.`Superseded By`` is structurally broken (always NULL). Do not use it.
 
 When analysing product performance where continuity matters, use the supersession CTE pattern
-documented in schema-reference.md section 4c. Always ask whether the user wants to include
+documented in `references/schema-inventory.md` section 4c. Always ask whether the user wants to include
 superseded products when the target product has bridge table entries.
 
 Key facts: flat topology (no recursion needed), many-to-one possible, superseded products
@@ -190,8 +192,16 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | `dim.warehouse` | Warehouse/facility reference | `Warehouse Key`, `Warehouse` |
 | `dim.supersessions` | Product replacement links | `Product Key` (new), `Superseded Key` (old) |
 
-## Reporting Standards
+## Common Anti-Patterns
 
-When producing formatted deliverables, reference `skills/initiate/references/mge-report-formatter.md` for
-brand standards: Connect Grey `#3F5364`, Accent Red `#CF152D`, Arial font, A4 layout,
-Australian number conventions.
+| Anti-Pattern | Consequence | Correct Approach |
+|-------------|-------------|-----------------|
+| Omit CAST on M3 fact->dim joins | Zero rows returned silently | `CAST(dim.Key AS STRING)` |
+| INNER JOIN fact to dim | Silently drops orphan records | LEFT JOIN, filter -1 explicitly |
+| Use `dim.product.`Superseded By`` | Always NULL (broken) | Use `dim.supersessions` bridge table |
+| Query GL/AR/AP before May 2024 | No data exists | Use fact.invoices or fact.budget |
+| Use `Fiscal Year` as string "FY25" | Wrong type — it's INT 2025 | Use `Fiscal Year Label` for display |
+| Filter employee BU = 'MT' without TRIM | Misses 14 employees | `TRIM(`Business Unit`) = 'MT'` |
+| Multiply FX rate | Inverts conversion | `amount / rate` |
+| Include CONO or deleted on gold tables | Column doesn't exist | These are pre-filtered in gold layer |
+| Use `fact.aropenitems` or `fact.targets` | Tables don't exist | `fact.accountsreceivable`, `fact.salestargets` |

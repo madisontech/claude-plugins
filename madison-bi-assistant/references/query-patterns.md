@@ -1,12 +1,10 @@
-# Data Warehouse Analysis Patterns
+# Verified Query Patterns
 
-> Verified query patterns for the Madison data warehouse. All column names, types, and joins
-> confirmed against live endpoint 2026-03-03.
-> Core rules in `context.md`. Full table reference in `schema-reference.md`.
+> All patterns verified against live endpoint 2026-03-03.
+> Join rules, exclusions, and business context are in context.md. Patterns here demonstrate
+> correct usage — they do not restate the rules.
 
-## Standard Query Patterns
-
-### Revenue by Business Unit (Employee Attribution)
+## Revenue by Business Unit (Employee Attribution)
 
 ```sql
 SELECT
@@ -25,14 +23,7 @@ GROUP BY TRIM(e.`Business Unit`)
 ORDER BY Revenue DESC
 ```
 
-Notes:
-- `Fiscal Year` is INT (2025), not string "FY25"
-- CAST required on employee join (M3 fact STRING -> dim LONG)
-- LEFT JOIN preserves -1 orphan employees
-- TRIM handles "MT " trailing space
-- Division 999 excluded (dummy)
-
-### Inventory by Business Unit (Product Attribution)
+## Inventory by Business Unit (Product Attribution)
 
 ```sql
 SELECT
@@ -46,12 +37,7 @@ GROUP BY TRIM(p.`Business Unit`)
 ORDER BY OnHandValue DESC
 ```
 
-Notes:
-- 47% of products have `<Unknown>` BU — flag this to the analyst
-- `OnHand Value` has a space (verified column name)
-- CAST required (M3 inventory fact)
-
-### AR Ageing
+## AR Ageing
 
 ```sql
 SELECT
@@ -68,13 +54,7 @@ GROUP BY c.`Customer Name`
 ORDER BY Total DESC
 ```
 
-Notes:
-- Table is `fact.accountsreceivable` (NOT `fact.aropenitems`)
-- Data from May 2024 onwards only
-- Positive amounts only (credit notes excluded by ETL)
-- CAST required (M3 fact)
-
-### Sales Orders Pipeline
+## Sales Orders Pipeline
 
 ```sql
 SELECT
@@ -90,7 +70,7 @@ GROUP BY TRIM(e.`Business Unit`), so.`Order Status`
 ORDER BY BU, so.`Order Status`
 ```
 
-### Sales Targets vs Actual
+## Sales Targets vs Actual
 
 ```sql
 SELECT
@@ -117,10 +97,6 @@ GROUP BY TRIM(e.`Business Unit`), c.`Fiscal Year`, c.`Fiscal Month`
 ORDER BY BU, c.`Fiscal Month`
 ```
 
-Notes:
-- Table is `fact.salestargets` (NOT `fact.targets`)
-- Targets at employee/date granularity
-
 ## Fiscal Year Filtering
 
 ```sql
@@ -145,25 +121,6 @@ Three granularity levels — choose the right one for the question:
 
 | Level | Table | Purpose | Key |
 |-------|-------|---------|-----|
-| Bin-level | `fact.itembalance` | Physical stock position by location/lot | `Product Key` + `Warehouse Key` + `Location Key` |
-| Warehouse-level | `fact.itemwarehouse` | Operational health (ageing, turnover, pareto, lead times) | `Product Key` + `Warehouse Key` |
-| Facility-level | `fact.itemfacility` | Accounting view (unit cost, valuation method) | `Product Key` + `Facility Key` |
-
-Use `itembalance` for "how much stock". Use `itemwarehouse` for "how healthy is inventory".
-Use `itemfacility` for "what is it worth".
-
-## GoldIntegrationQuery Extraction
-
-For understanding ETL transformation logic (investigation mode only):
-
-```sql
-SELECT
-    JSON_EXTRACT_SCALAR(GoldObjectSettings, '$.tableName') AS table_name,
-    GoldIntegrationQuery,
-    JSON_EXTRACT_SCALAR(GoldIntegrationBehaviorSettings, '$.integrationType') AS load_type
-FROM int.maincontroltable
-WHERE GoldObjectSettings LIKE '%invoices%'
-  AND GoldIntegrationEnabled = true
-```
-
-**GoldIntegrationQuery is for learning/debugging only — never for primary analysis.**
+| Bin-level | `fact.itembalance` | Physical stock position by location/lot | Product + Warehouse + Location |
+| Warehouse-level | `fact.itemwarehouse` | Operational health (ageing, turnover, pareto) | Product + Warehouse |
+| Facility-level | `fact.itemfacility` | Accounting view (unit cost, valuation method) | Product + Facility |

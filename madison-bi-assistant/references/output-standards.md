@@ -1,55 +1,137 @@
-# MGE Report Formatter — Brand Identity Reference
+# Output & Formatting Standards
 
-> Reference before generating any DOCX, XLSX, or PPTX deliverable.
+> Load when producing charts, tables, reports, or branded deliverables.
+> Combines data presentation rules with MGE brand identity.
 
-## Typography
+## Default Output Behaviour
+
+- Any `/format` invocation produces a branded deliverable. Default format: **XLSX**.
+- Markdown tables are for chat-only responses (via `/query`), not deliverables.
+- When `/format` is invoked standalone with a data request, run the query first, then format.
+- Australian conventions throughout: comma = thousands, period = decimal, DD/MM date order.
+
+## Output Metadata (mandatory)
+
+Every deliverable includes:
+
+1. **Title** — what this shows (concise, specific)
+2. **Subtitle** — time period, scope, filters applied
+3. **Data source** — table/view name or "Databricks datawarehouse"
+4. **Last refreshed** — when the data was pulled (DD/MM/YYYY HH:MM)
+5. **Author** — who produced this / who to contact
+
+## Chart Selection
+
+| Purpose | Use | Avoid |
+|---------|-----|-------|
+| Compare categories | Bar chart (horizontal or vertical) | Pie chart (unless 2-3 segments) |
+| Trend over time | Line chart | Area chart (unless stacked composition) |
+| Part-to-whole | Stacked bar or treemap | 3D pie, donut with >4 segments |
+| Correlation | Scatter plot | Bubble chart (hard to read) |
+| Precise values | Table with conditional formatting | Chart alone without supporting table |
+| Single KPI | Big number with trend indicator | Gauge / speedometer (wastes space) |
+
+### Chart Rules
+
+- **Axis labels:** Readable, never rotated beyond 45 degrees
+- **Gridlines:** Minimal — horizontal only, light grey, no vertical
+- **Legend:** Only when >1 series; position top or right
+- **Data labels:** On bars when <10 items; avoid on line charts
+- **Sort order:** Meaningful — largest to smallest, or chronological. Never alphabetical unless categorical
+- **Zero baseline:** Always start Y-axis at zero for bar charts
+
+## Colour Usage
+
+- **Colour communicates data, not decoration** — every colour choice has a reason
+- **Positive / neutral:** Connect Grey. **Negative / decline:** Accent Red
+- **Sequential data:** Light-to-dark tints of Connect Grey
+- **Categorical data:** Follow chart colour sequence from brand palette
+- **Accessibility:** Never rely on colour alone — pair with shape, pattern, or label
+- **Maximum 5-7 colours** per chart; consolidate small categories into "Other"
+
+## Number Presentation
+
+| Context | Approach | Example |
+|---------|----------|---------|
+| Summary / dashboard | No decimals, K/M/B suffixes | $1.2M |
+| Detail / drill-down | Full precision, comma separated | $1,234,567.89 |
+| Variance | Signed with +/- prefix | +5.2%, -$12K |
+| Percentages | 1 decimal unless integer sufficient | 12.3% |
+
+### Comparison Context
+
+Numbers without context are meaningless. Always show at least one:
+- vs prior period (MoM, QoQ, YoY)
+- vs target / budget
+- vs benchmark or peer group
+- Include both absolute and percentage variance where space permits
+
+## Table Formatting
+
+- **Alignment:** Text left, numbers right, headers match their data alignment
+- **Sorting:** Default to most useful order — largest value or most recent date
+- **Conditional formatting:** Subtle — Accent Red text for negative, not garish cell fills
+- **Row density:** Enough rows to tell the story; link to detail if >25 rows
+- **Totals:** Bottom row, visually separated, bold
+
+## Layout Principles
+
+- **Information hierarchy:** Most important metric top-left, supporting detail flows down-right
+- **Group related metrics** — don't scatter KPIs across unrelated sections
+- **Whitespace is structure** — density without clutter; let the data breathe
+- **One key message per view** — if you need more, add a page or tab
+
+---
+
+## Brand Identity — MGE
+
+### Typography
 
 **Brand font:** Hurme Geometric Sans (Semibold headers, Regular body).
-**Automated output font:** Arial — use in all programmatic output. Hurme is unavailable
-in standard Office/Python environments.
+**Automated output font:** Arial — use in all programmatic output.
 
 | Element | Weight | Size (pt) |
 |---------|--------|-----------|
-| Document title | Bold | 24–28 |
-| H1 section heading | Bold | 18–20 |
-| H2 sub-heading | Bold | 14–16 |
-| H3 sub-sub-heading | Bold | 12–13 |
-| Body text | Regular | 10–11 |
+| Document title | Bold | 24-28 |
+| H1 section heading | Bold | 18-20 |
+| H2 sub-heading | Bold | 14-16 |
+| H3 sub-sub-heading | Bold | 12-13 |
+| Body text | Regular | 10-11 |
 | Table header | Bold | 10 |
-| Table content | Regular | 9–10 |
+| Table content | Regular | 9-10 |
 | Footnotes / captions | Regular | 8 |
 
 Line spacing: 1.15 for body text. Paragraph spacing: 6pt after.
 
-## Colour Palette
+### Colour Palette
 
-### Primary
+#### Primary
 
 | Role | Name | HEX | RGB | Usage |
 |------|------|-----|-----|-------|
-| Primary | Connect Grey | `#3F5364` | 63, 83, 100 | Headings, headers/footers, block panels, chart primary |
-| Accent | Accent Red | `#CF152D` | 200, 16, 46 | Sparingly — accents, bullets, status indicators, negative values |
-| Background | Satin Grey | `#E4E5E6` | 228, 229, 230 | Background panels, alternating rows, section breaks |
-| Dark | Dark Grey | `#243747` | 35, 55, 70 | Extra contrast headings, dark panel backgrounds |
-| Secondary | 50% Connect Grey | `#9FA9B2` | 159, 169, 178 | Secondary text, borders, dividers, grid lines |
+| Primary | Connect Grey | `#3F5364` | 63, 83, 100 | Headings, headers/footers, chart primary |
+| Accent | Accent Red | `#CF152D` | 200, 16, 46 | Sparingly — accents, negative values |
+| Background | Satin Grey | `#E4E5E6` | 228, 229, 230 | Background panels, alternating rows |
+| Dark | Dark Grey | `#243747` | 35, 55, 70 | Extra contrast headings |
+| Secondary | 50% Connect Grey | `#9FA9B2` | 159, 169, 178 | Secondary text, borders, dividers |
 
-### Derived Tints
+#### Derived Tints
 
 | Name | HEX | Usage |
 |------|-----|-------|
 | Connect Grey 20% | `#D9DDE1` | Alternating table rows (light) |
-| Connect Grey 10% | `#ECEEF0` | Subtle zebra stripe, hover states |
+| Connect Grey 10% | `#ECEEF0` | Subtle zebra stripe |
 | Accent Red 20% | `#F8D0D5` | Negative variance background |
 | Accent Red 10% | `#FCE8EA` | Subtle alert background |
 
-### Colour Rules
+#### Colour Rules
 
 - Brand palette only — never default blue, never unbranded colours
 - Accent Red is an accent: never dominant, never for headings, never for large fills
 - Positive values = Connect Grey. Negative values = Accent Red text
 - Green is NOT in the brand palette — use Connect Grey for positive indicators
 
-### Chart Colour Sequence
+#### Chart Colour Sequence
 
 1. Connect Grey `#3F5364`
 2. Accent Red `#CF152D`
@@ -57,32 +139,21 @@ Line spacing: 1.15 for body text. Paragraph spacing: 6pt after.
 4. Satin Grey `#E4E5E6`
 5. Dark Grey `#243747`
 
-## Brand Elements
+### Brand Elements
 
-### Corner Device
+**Corner device:** Small L-shaped accent, top-right corner of covers/title slides.
+Accent Red on light, White on dark. 8mm small, 15mm A4.
 
-Small L-shaped accent placed at the **top-right corner** of cover pages and title slides.
-Colour: Accent Red on light backgrounds, White on dark backgrounds.
-Sizes: 8mm for small formats, 15mm for A4/presentations.
-Always maintain original orientation — never rotate or reposition.
-
-### Circle Pattern
-
-Dotted halftone circle pattern used as subtle background texture.
-Satin Grey dots on white for light themes; Connect Grey dots on dark backgrounds.
-Decorative accent — not required on every output.
+**Circle pattern:** Dotted halftone background texture. Decorative — not required on every output.
 
 ## Layout — Documents (DOCX)
 
 - **Page size:** A4 portrait, 1-inch margins all sides
 - **Header:** Connect Grey rule line; document title left in 50% Connect Grey 9pt
 - **Footer:** Page number right, title left, in 50% Connect Grey 8pt
-- **Heading hierarchy:** Use Word Styles — one H1 for document title only, H2 for sections, H3 for subsections
 - **Heading colour:** Connect Grey for H1/H2, Dark Grey for H3+. Never black, never red
-- **Body spacing:** 1.15 line spacing, 6pt after paragraphs
-- **Tables:** Connect Grey header row (white bold text), alternating Connect Grey 10% / white, 50% Connect Grey thin borders
-- **Callout boxes:** Satin Grey background with Connect Grey left border. Red for critical alerts only
-- **Whitespace:** Maximise. Tight wording. Charts/tables between paragraphs, centre-aligned
+- **Tables:** Connect Grey header row (white bold text), alternating CG10%/white, CG50% thin borders
+- **Callout boxes:** Satin Grey background with Connect Grey left border
 
 ## Layout — Spreadsheets (XLSX)
 
@@ -117,15 +188,12 @@ Decorative accent — not required on every output.
 | Integer | `#,##0` | 1,234 |
 | Date | `DD/MM/YYYY` | 03/03/2026 |
 
-Australian conventions throughout: comma = thousands, period = decimal, DD/MM date order.
-
 ## Layout — Presentations (PPTX)
 
 - **Slide size:** 16:9 widescreen
 - **Title slides:** Connect Grey background, white text, Accent Red corner device top-right
 - **Content slides:** White background, Connect Grey headings, Dark Grey body text
 - **Charts:** Brand colour sequence, clean axis labels, minimal gridlines
-- **Footer:** Slide number right, date left, in 50% Connect Grey 8pt
 
 ## Python Constants
 
@@ -171,9 +239,6 @@ MGE_THIN_BORDER = Border(
     left=Side(style="thin", color=MGE.CONNECT_GREY_50),
     right=Side(style="thin", color=MGE.CONNECT_GREY_50),
     top=Side(style="thin", color=MGE.CONNECT_GREY_50),
-    bottom=Side(style="thin", color=MGE.CONNECT_GREY_50),
-)
-MGE_BOTTOM_BORDER = Border(
     bottom=Side(style="thin", color=MGE.CONNECT_GREY_50),
 )
 

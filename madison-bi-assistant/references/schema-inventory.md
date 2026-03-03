@@ -1,7 +1,9 @@
-# Schema Reference — Madison Data Warehouse
+# Schema Inventory — Madison Data Warehouse
 
 > Verified 2026-03-03. Source: schema audit TASK-002 through TASK-006.
 > 59 live tables (20 dim, 39 fact). All column names are exact Pascal Case with backticks.
+> Load this file on demand — core tables and query rules are in context.md.
+> Revenue/margin formulas, FX conversion, and anti-patterns are canonical in context.md.
 
 ---
 
@@ -156,7 +158,7 @@ Truncated non-standard: `NS` (not NSW), `VI` (not VIC), `QL` (not QLD), `WA`, `S
 `NZ` is country not state. 32% empty.
 
 ### dim.calendar.`Fiscal Year`
-Type: INT. Values: 2017–2026. (NOT string "FY25" — that's `Fiscal Year Label`)
+Type: INT. Values: 2017-2026. (NOT string "FY25" — that's `Fiscal Year Label`)
 
 ### dim.division
 10 rows: 100/MAV, 200/MT, 300/TPM, 400/KPR, 500/MGE, 505/MEX, 520/MEX, 550/MCS, 560/MNZ, 999/ZZZ
@@ -168,21 +170,7 @@ Type: INT. Values: 2017–2026. (NOT string "FY25" — that's `Fiscal Year Label
 
 ## 4. Key Derivations
 
-### 4a. Revenue and Margin (fact.invoices)
-```
-InvoiceValue       = qty x unit price           (OINVOL type '31')
-HeaderChargeValue  = header-level charges        (type '60')
-LineChargeValue    = line-level charges          (type '67')
-TotalValue         = InvoiceValue + HeaderChargeValue + LineChargeValue
-
-TotalCost          = standard cost - supplier rebate + COGS charge
-RebateAmount       = 4-tier waterfall (exclusive brand, non-exclusive brand,
-                     wholesale accrual, member accrual) + FREDON 5% + MI Retail 4%
-
-Margin             = TotalValue - TotalCost - RebateAmount
-```
-
-### 4b. Order Status (fact.salesorders — 16 levels)
+### 4a. Order Status (fact.salesorders — 16 levels)
 Priority-ordered CASE expression:
 1. Shortage (01) -> 2. Awaiting PO (02) -> 3. Awaiting DO (03) -> 4. PO/DO Pending (04)
 5. Ready to Pick (05) -> 6. Part Picked (06) -> 7. Fully Picked (07)
@@ -193,7 +181,7 @@ Priority-ordered CASE expression:
 
 Statuses 01-04 = supply-constrained. 05-11 = warehouse operations. 12-15 = finance.
 
-### 4c. Product Supersession CTE Pattern
+### 4b. Product Supersession CTE Pattern
 
 ```sql
 WITH product_family AS (
@@ -213,18 +201,14 @@ WITH product_family AS (
 )
 SELECT pf.product_role, pf.`Product Number`, ...
 FROM product_family pf
-JOIN datawarehouse.fact.invoices i ON pf.`Product Key` = CAST(i.`Product Key` AS STRING)
+JOIN datawarehouse.fact.invoices i ON CAST(pf.`Product Key` AS STRING) = i.`Product Key`
 ...
 ```
 
-Wait — the CAST direction here. fact.invoices stores Product Key as STRING, dim stores as LONG.
-So when joining FROM dim (which is LONG) TO fact (which is STRING):
-```sql
-JOIN datawarehouse.fact.invoices i ON CAST(pf.`Product Key` AS STRING) = i.`Product Key`
-```
-Or equivalently: `ON i.`Product Key` = CAST(pf.`Product Key` AS STRING)`
+Note: fact.invoices stores Product Key as STRING, dim stores as LONG.
+When joining FROM dim TO fact: `CAST(pf.`Product Key` AS STRING) = i.`Product Key``
 
-### 4d. Inventory Valuation
+### 4c. Inventory Valuation
 ```
 UnitCost = CASE M9VAMT
   WHEN 0 THEN 0 (no valuation)
@@ -236,31 +220,9 @@ OnHand Value = On Hand Qty x UnitCost
 ```
 WAC = sum(qty x cost_bucket) / sum(qty) across 9 MCKOST buckets at facility level.
 
-### 4e. FX Conversion
-`LocalAmount = ForeignAmount / ExchangeRate`
-Rate = foreign currency units per 1 AUD. **Division, not multiplication.**
-
-### 4f. Allocation Chain
+### 4d. Allocation Chain
 ```
 Ordered - Allocated - Supply = Unfulfilled (shortage)
 Supply = PreAllocated + PO qty + DO qty
 Pipeline Original Currency = outstanding unallocated value
 ```
-
----
-
-## 5. Anti-Patterns (Never Do These)
-
-| Anti-Pattern | Consequence | Correct Approach |
-|-------------|-------------|-----------------|
-| Omit CAST on M3 fact->dim joins | Zero rows returned silently | `CAST(dim.Key AS STRING)` |
-| INNER JOIN fact to dim | Silently drops -1 orphan records | LEFT JOIN, filter -1 explicitly if needed |
-| Use `dim.product.`Superseded By`` | Always NULL (structurally broken) | Use `dim.supersessions` bridge table |
-| Query GL/AR/AP for pre-May 2024 | No data exists | Use fact.invoices or fact.budget for historical |
-| Use `Fiscal Year` as string "FY25" | Wrong type — it's INT 2025 | Use `Fiscal Year Label` for display, `Fiscal Year` (INT) for filtering |
-| Filter `dim.employee.`Business Unit` = 'MT'` without TRIM | Misses 14 employees with "MT " | `TRIM(`Business Unit`) = 'MT'` |
-| Multiply FX rate instead of divide | Inverts the conversion | `amount / rate` (rate is foreign per AUD) |
-| Use `fact.aropenitems` or `fact.targets` | Tables don't exist by those names | `fact.accountsreceivable`, `fact.salestargets` |
-| Query `fact.inventoryprojection` | Disabled ETL, stale data | Use `fact.itemwarehouse` for current inventory health |
-| Query `fact.codeliveries` | Empty table (0 rows, broken ETL) | Use `fact.deliverynotes` for delivery data |
-| Reference `dim.calendar.`Is Future Date`` | Column doesn't exist | Compute: `Date Key > CAST(DATE_FORMAT(CURRENT_DATE(), 'yyyyMMdd') AS INT)` |
