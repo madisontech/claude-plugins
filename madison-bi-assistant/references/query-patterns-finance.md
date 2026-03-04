@@ -1,7 +1,7 @@
 # Finance Query Patterns
 
-> Verified against live datawarehouse 2026-03-04.
-> All patterns tested and returning reasonable results.
+> Plugin v3.3.0. All patterns tested and returning reasonable results.
+> Substitute `{fiscal_year}` with `YEAR(ADD_MONTHS(CURRENT_DATE(), -6))` for current FY.
 
 ## Budget vs GL Variance — By Account Category
 
@@ -144,7 +144,7 @@ HAVING ABS(SUM(g.actual_amount) - SUM(b.`Budgeted Amount`)) > 50000
 
 ## Key Facts
 
-- **Budget scope:** Division 1 (MGE) only. FY2024 (202407-202506). 4,973 rows, 75 P&L accounts, 26 cost centres.
+- **Budget scope:** Division 1 (MGE) only. Current budget FY (202407-202506 = FY2025). ~75 P&L accounts, 26 cost centres.
 - **GL scope:** Post-May 2024. 1.97M rows. All divisions. Filter to `Account Type = 'P & L'` for variance.
 - **Period join:** `fact.budget.Budget Period Key` (INT YYYYMM) = `dim.calendar.Month Key` (INT YYYYMM).
 - **Dimension joins:** Budget and GL share `Division Key`, `Cost Centre Key`, `Account Key` (all INT -> BIGINT dims, implicit coercion).
@@ -165,8 +165,10 @@ SELECT
     SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) BETWEEN 1 AND 30
              THEN ar.`AUD Amount` END) AS days_30,
     SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) BETWEEN 31 AND 60
-             THEN ar.`AUD Amount` END) AS days_60,
-    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) > 60
+             THEN ar.`AUD Amount` END) AS days_31_60,
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) BETWEEN 61 AND 90
+             THEN ar.`AUD Amount` END) AS days_61_90,
+    SUM(CASE WHEN DATEDIFF(CURRENT_DATE(), TO_DATE(ar.`Due Date`, 'yyyyMMdd')) > 90
              THEN ar.`AUD Amount` END) AS days_90_plus,
     SUM(ar.`AUD Amount`) AS total
 FROM datawarehouse.fact.accountsreceivable ar
@@ -180,7 +182,7 @@ ORDER BY total DESC
 ## AP Ageing — Net Balance (Accurate)
 
 **AP is double-entry:** invoices are negative `AUD Amount`, payments/credits are positive (blank
-`Payment Term`). Gross ageing is wildly misleading — $160M gross invoices net to ~$9M outstanding.
+`Payment Term`). Gross ageing is wildly misleading (gross is 10-20x net outstanding).
 Always compute net balance per supplier-invoice first, then age the residual.
 
 ```sql
@@ -222,7 +224,7 @@ GROUP BY s.`Supplier Name`,
 ORDER BY net_outstanding ASC
 ```
 
-**Baseline (2026-03-04):** Net outstanding $9.3M — 83% not yet due ($7.7M), 90+ overdue $1.1M (30 suppliers).
+**Orientation:** Majority (~80%+) of net AP is typically not yet due. Run the query for current figures.
 
 ---
 
@@ -263,8 +265,7 @@ GROUP BY
 ORDER BY total_aud ASC
 ```
 
-**Baseline (2026-03-04):** Overall weighted DPO = 51.6 days across 655 suppliers, $166.8M spend.
-Net: 52.6d ($136.9M). Statement: 49.1d ($27.1M). Month-end: 34.1d ($1.9M). Immediate: 2.5d ($873K).
+**Orientation:** DPO typically 38-55 days weighted. Net terms dominate (~80% of spend). Statement terms add ~14 days beyond nominal. Run the query for current figures.
 
 ---
 
@@ -342,7 +343,7 @@ HAVING SUM(ABS(ap.`AUD Amount`)) > 50000
 ORDER BY cash_flow_benefit_to_n30 DESC
 ```
 
-**Top candidates (2026-03-04):** Engaging Success Logistics (N07, $1.2M, $76K benefit), David Redfern Investments (N00, $832K, $68K benefit), Compass Investments (N00, $701K, $58K benefit).
+**Usage:** Run with current data to identify top candidates. Focus on suppliers with >$50K annual spend on short terms (<=14 days).
 
 ---
 
@@ -364,16 +365,16 @@ GROUP BY pp.`week start`, pp.`Bucket Label`, pp.`Sort Order`
 ORDER BY pp.`week start`, pp.`Sort Order`
 ```
 
-**Pipeline buckets:**
-| Sort | Code | Label | Rows | Suppliers | Total FC |
-|------|------|-------|------|-----------|----------|
-| 10 | OPEN_SENT | Open PO Sent | 172 | 109 | $3.6M |
-| 20 | OPEN_CONFIRMED | Open PO's Confirmed | 155 | 48 | $8.2M |
-| 30 | SHIP_ADVISED | Shipment Advised | 29 | 13 | $2.1M |
-| 40 | GRNI | GRNI | 6 | 4 | $98K |
-| 99 | AP_UNPAID | AP Unpaid | 481 | 259 | $11.3M |
+**Pipeline buckets (by Sort Order):**
+| Sort | Code | Label | Description |
+|------|------|-------|-------------|
+| 10 | OPEN_SENT | Open PO Sent | Purchase orders dispatched to supplier |
+| 20 | OPEN_CONFIRMED | Open PO's Confirmed | Supplier-confirmed orders |
+| 30 | SHIP_ADVISED | Shipment Advised | In transit |
+| 40 | GRNI | GRNI | Goods received, not yet invoiced |
+| 99 | AP_UNPAID | AP Unpaid | Invoiced but unpaid — immediate cash pressure |
 
-Total pipeline: ~$25.3M committed outflows. AP_UNPAID is immediate cash pressure ($11.3M).
+Run the query for current pipeline totals. AP_UNPAID is typically the largest bucket.
 
 ---
 
@@ -384,7 +385,7 @@ Total pipeline: ~$25.3M committed outflows. AP_UNPAID is immediate cash pressure
 - **No early payment discounts:** All 28 payment terms are pure Net/Month-end/Statement/Cash/COD.
 - **Supplier Key CAST:** `ap.Supplier Key` (STRING) joins `dim.supplier.Supplier Key` (BIGINT) via `CAST(s.Supplier Key AS STRING)`.
 - **Date columns are STRING:** `Invoice Date`, `Due Date`, `Entry Date` — all STRING YYYYMMDD. Use `TO_DATE(col, 'yyyyMMdd')` for date arithmetic.
-- **Data from May 2024 only.** 34,051 rows for Division 1 (16,382 invoices + 16,562 payments + 1,107 partial/closed).
+- **Data from May 2024 only.** Large transactional table for Division 1 (roughly even split of invoices and payment offsets, plus some partial/closed).
 
 ---
 
@@ -427,7 +428,7 @@ FROM supplier_totals
 ORDER BY abs_outstanding DESC
 ```
 
-**Baseline (2026-03-04):** 130 suppliers, $9.3M total net outstanding. Top 5 = 60%, top 10 = 80%, top 20 = 92%. Dicker Data ($1.68M, 18%), Zhejiang Zhengdao ($1.51M, 16%), Harman Professional ($941K, 10%).
+**Orientation:** Supplier concentration is high — top 5 suppliers typically account for ~60% of net outstanding, top 10 ~80%. Run the query for current figures.
 
 ---
 
@@ -458,9 +459,7 @@ GROUP BY c.`Month Key`, c.`Calendar Month Short Name`
 ORDER BY c.`Month Key`
 ```
 
-**Caveat:** Monthly DPO susceptible to single-supplier skew. Sep 2025 spiked to 99.4 days — driven by Harman Professional ($2.8M, 261-day weighted DPO due to invoice-to-accounting date gap). Exclude the current partial month.
-
-**Baseline range (2026-03-04):** Typical 38-53 days. Outliers Sep 2025 (99.4d) and Oct 2025 (81.0d).
+**Caveat:** Monthly DPO susceptible to single-supplier skew — one large late-booked invoice can spike a month. Always exclude the current partial month. Typical range: 38-55 days.
 
 ---
 
@@ -495,7 +494,7 @@ GROUP BY s.`Supplier Name`
 ORDER BY overdue_amount DESC
 ```
 
-**Baseline (2026-03-04):** $1.14M across 30 suppliers. Intercompany dominates: Kallipr ($544K, 679-693 days), Rajant ($325K, 683 days), Moxa ($58K, 865-985 days). Intercompany items (Kallipr, Madison Connectivity $46K, CtrlOps $39K) = ~$628K — exclude for external risk assessment. Genuine external 90+ overdue: ~$510K.
+**Orientation:** Intercompany suppliers (Kallipr, Madison Connectivity, CtrlOps) typically dominate 90+ overdue by dollar value. Exclude intercompany for external risk assessment. Run the query for current figures.
 
 ---
 
@@ -540,9 +539,9 @@ ORDER BY period
 
 **For AP:** Replace `Account Key = 313` with `444`, `fact.accountsreceivable` with `fact.accountspayable`, and `ar.AUD Amount` with `ap.AUD Amount`.
 
-**Baseline (2026-03-04):**
-- AR: Near-exact match most months ($0-$7K, <1%). Differences = intercompany entries (12110). Several months $0.00 exact.
-- AP: Larger variance ($0-$258K). May 2025 outlier ($258K). Sources: manual journals, timing, intercompany.
+**Orientation:**
+- AR: Near-exact match most months (typically <$15K, <1%). Differences = intercompany entries (12110).
+- AP: Larger variance (typically <$100K). Sources: manual journals, timing, intercompany.
 
 ---
 

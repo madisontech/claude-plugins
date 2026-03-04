@@ -1,8 +1,8 @@
 # Verified Query Patterns
 
-> All patterns verified against live endpoint 2026-03-03.
-> Join rules, exclusions, and business context are in context.md. Patterns here demonstrate
-> correct usage — they do not restate the rules.
+> Plugin v3.3.0. Join rules, exclusions, and business context are in context.md.
+> Patterns demonstrate correct usage — they do not restate the rules.
+> Substitute `{fiscal_year}` with `YEAR(ADD_MONTHS(CURRENT_DATE(), -6))` for current FY.
 
 ## Revenue by Business Unit (Employee Attribution)
 
@@ -17,7 +17,7 @@ LEFT JOIN datawarehouse.dim.employee e
     ON i.`Employee Key` = CAST(e.`Employee Key` AS STRING)
 LEFT JOIN datawarehouse.dim.calendar c
     ON i.`Invoice Date Key` = c.`Date Key`
-WHERE c.`Fiscal Year` = 2025
+WHERE c.`Fiscal Year` = YEAR(ADD_MONTHS(CURRENT_DATE(), -6))
   AND i.`Division` <> '999'
 GROUP BY TRIM(e.`Business Unit`)
 ORDER BY Revenue DESC
@@ -75,47 +75,63 @@ ORDER BY BU, so.`Order Status`
 
 ## Sales Targets vs Actual
 
+Sales targets are **monthly** — `fact.salestargets` uses `Fiscal Year Month Key` (INT, format YYYYMM),
+NOT a daily Date Key. Aggregate invoices to monthly before joining.
+
+Key columns on `fact.salestargets`: `Fiscal Year Month Key` (INT), `Employee Key` (STRING),
+`Sales Order Targets`, `Invoice Targets`, `Invoice Margin Targets`, `Budget Targets`,
+`Budget Margin Targets`, `MOPro Rep ID`.
+
 ```sql
+WITH monthly_actuals AS (
+    SELECT
+        i.`Employee Key`,
+        c.`Fiscal Year`,
+        c.`Fiscal Month Number` AS FiscalMonth,
+        CAST(CONCAT(c.`Fiscal Year`, LPAD(c.`Fiscal Month Number`, 2, '0')) AS INT) AS FiscalYearMonthKey,
+        SUM(i.`Total Value`) AS ActualRevenue,
+        SUM(i.`Margin`) AS ActualMargin
+    FROM datawarehouse.fact.invoices i
+    LEFT JOIN datawarehouse.dim.calendar c
+        ON i.`Invoice Date Key` = c.`Date Key`
+    WHERE i.`Division` <> '999'
+      AND c.`Fiscal Year` = YEAR(ADD_MONTHS(CURRENT_DATE(), -6))
+    GROUP BY i.`Employee Key`, c.`Fiscal Year`, c.`Fiscal Month Number`
+)
 SELECT
     TRIM(e.`Business Unit`) AS BU,
-    c.`Fiscal Year`,
-    c.`Fiscal Month`,
-    SUM(t.`Target Value`) AS Target,
-    SUM(i.`Total Value`) AS Actual
-FROM datawarehouse.fact.salestargets t
+    a.`Fiscal Year`,
+    a.FiscalMonth,
+    SUM(t.`Invoice Targets`) AS InvoiceTarget,
+    SUM(a.ActualRevenue) AS ActualRevenue,
+    SUM(t.`Invoice Margin Targets`) AS MarginTarget,
+    SUM(a.ActualMargin) AS ActualMargin
+FROM monthly_actuals a
+LEFT JOIN datawarehouse.fact.salestargets t
+    ON a.`Employee Key` = t.`Employee Key`
+    AND a.FiscalYearMonthKey = t.`Fiscal Year Month Key`
 LEFT JOIN datawarehouse.dim.employee e
-    ON t.`Employee Key` = CAST(e.`Employee Key` AS STRING)
-LEFT JOIN datawarehouse.dim.calendar c
-    ON t.`Date Key` = c.`Date Key`
-LEFT JOIN (
-    SELECT `Employee Key`, `Invoice Date Key`,
-           SUM(`Total Value`) AS `Total Value`
-    FROM datawarehouse.fact.invoices
-    WHERE `Division` <> '999'
-    GROUP BY `Employee Key`, `Invoice Date Key`
-) i ON t.`Employee Key` = i.`Employee Key`
-   AND t.`Date Key` = i.`Invoice Date Key`
-WHERE c.`Fiscal Year` = 2025
-GROUP BY TRIM(e.`Business Unit`), c.`Fiscal Year`, c.`Fiscal Month`
-ORDER BY BU, c.`Fiscal Month`
+    ON a.`Employee Key` = CAST(e.`Employee Key` AS STRING)
+GROUP BY TRIM(e.`Business Unit`), a.`Fiscal Year`, a.FiscalMonth
+ORDER BY BU, a.FiscalMonth
 ```
 
 ## Fiscal Year Filtering
 
 ```sql
--- FY25 = Jul 2024 to Jun 2025
-WHERE c.`Fiscal Year` = 2025            -- INT, not 'FY25'
+-- Current fiscal year (dynamic — FY = July to June)
+WHERE c.`Fiscal Year` = YEAR(ADD_MONTHS(CURRENT_DATE(), -6))  -- INT, not 'FY25'
 
 -- Current month via date key
-WHERE i.`Invoice Date Key` >= 20250201
-  AND i.`Invoice Date Key` < 20250301
+WHERE i.`Invoice Date Key` >= CAST(DATE_FORMAT(TRUNC(CURRENT_DATE(), 'MM'), 'yyyyMMdd') AS INT)
+  AND i.`Invoice Date Key` < CAST(DATE_FORMAT(ADD_MONTHS(TRUNC(CURRENT_DATE(), 'MM'), 1), 'yyyyMMdd') AS INT)
 
 -- YTD (fiscal year to today)
-WHERE c.`Fiscal Year` = 2025
+WHERE c.`Fiscal Year` = YEAR(ADD_MONTHS(CURRENT_DATE(), -6))
   AND c.`Date Key` <= CAST(DATE_FORMAT(CURRENT_DATE(), 'yyyyMMdd') AS INT)
 
 -- Display label
-SELECT c.`Fiscal Year Label`            -- returns '2024-2025' (not 'FY25')
+SELECT c.`Fiscal Year Label`            -- returns '2024-2025' format (not 'FY25')
 ```
 
 ## Inventory Hierarchy

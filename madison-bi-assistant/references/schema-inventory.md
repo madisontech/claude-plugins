@@ -1,9 +1,9 @@
 # Schema Inventory — Madison Data Warehouse
 
-> Verified 2026-03-03. Source: schema audit TASK-002 through TASK-006.
-> 59 live tables (20 dim, 39 fact). All column names are exact Pascal Case with backticks.
+> Plugin v3.3.0. Source: schema audit TASK-002 through TASK-006.
+> Column names are from `datawarehouse.*` views (space-separated, backtick-quoted).
+> The underlying `gold.*` tables use PascalCase — do not mix conventions.
 > Load this file on demand — core tables and query rules are in context.md.
-> Revenue/margin formulas, FX conversion, and anti-patterns are canonical in context.md.
 
 ---
 
@@ -14,25 +14,25 @@
 | Table | Rows | Purpose |
 |-------|------|---------|
 | `dim.account` | 530 | GL account chart (GROUP by first digit: 1=Assets, 2=Liabilities, 3=Equity, 4=Revenue, 5+=Expenses) |
-| `dim.brand` | 598 | Brand master (brand groups for rebate matching) |
+| `dim.brand` | ~600 | Brand master. Key for rebate analysis: `Brand Key`, `Brand`, `Rebate Brand Group`, `Brand Group`. Note: agreement brand groups (JBL, AKG, etc.) don't map 1:1 to `Rebate Brand Group` — see IS-3706 for mapping |
 | `dim.calendar` | 3,471 | Date dimension 2017-07-01 to 2026-12-31. FY July start. Key: `Date Key` (INT YYYYMMDD) |
 | `dim.case` | 5,741 | SF case records (support tickets) |
 | `dim.costcentre` | 72 | Cost centre lookup. 72% of GL entries have -1 (no cost centre) — by design |
-| `dim.currency` | 29 | ISO currency codes (AUD, USD, EUR, NZD...) |
-| `dim.customer` | 10,091 | Customer master (M3+SF merged). `Customer Key` (LONG), `Customer Code`, `Customer Name` |
+| `dim.currency` | 29 | ISO currency reference. `Currency Key` (STRING ISO code), `Currency Name`. Used by fact.currencyhistory for FX rates. AUD is base |
+| `dim.customer` | ~10K | Customer master (M3+SF merged). Key fields: `Customer Key` (LONG), `Customer Code`, `Customer Name`, `Payment Terms`, `Delivery Terms`, `Credit Limit1`/`2`/`3`, `Customer Stop`, `Wholesale Group`, `Wholesale Branch`, `City`, `State`, `Country`, `Postcode`, `Account Owner`, `Business Unit`, `Is Active` |
 | `dim.customerpo` | 295,064 | Customer PO cross-reference (denormalised, large) |
 | `dim.division` | 10 | Legal entities. Codes 100-560 + 999 (dummy) |
 | `dim.employee` | 349 | Salespeople. `Employee Key` (LONG), `Business Unit` (TRIM required — "MT " trailing space) |
 | `dim.itemsupplier` | 36,445 | Item-supplier assignment |
 | `dim.location` | 2,107 | Warehouse bin locations |
-| `dim.paymentterms` | 41 | Payment terms lookup |
+| ~~`dim.paymentterms`~~ | — | **Does not exist.** Payment terms are STRING fields on `dim.customer` and `dim.supplier` |
 | `dim.pricelist` | 104,771 | Customer price list (large, denormalised) |
 | `dim.product` | 72,479 | Product master (M3+SF merged). `Product Key` (LONG), `Product Number`, `Business Unit` (47% Unknown) |
 | `dim.sfaccount` | 18,758 | Raw SF accounts (many without M3 match) |
-| `dim.supersessions` | 2,505 | Product replacement bridge. `Product Key` (new) <-> `Superseded Key` (old). Only reliable mechanism |
-| `dim.supplier` | 2,022 | Supplier master |
+| `dim.supersessions` | ~2.5K | Product replacement bridge. `Product Key` (new) <-> `Superseded Key` (old). Only reliable mechanism |
+| `dim.supplier` | ~2K | Supplier master. Key fields: `Supplier Key` (BIGINT), `Supplier Code`, `Supplier Name`, `Supplier Country`, `Supplier Division`, `Supplier Status`, `Payment Terms`, `Delivery Terms`, `Is Active` |
 | `dim.supplierpricelist` | 153,891 | Supplier price list (large, denormalised) |
-| `dim.warehouse` | 51 | Warehouse/facility reference |
+| `dim.warehouse` | 51 | Warehouse/facility reference. Columns: `Warehouse Key`, `Warehouse`, `Warehouse Description`, `Division` (STRING — maps warehouse to division code), `Is Active`. 27 active across 6 divisions |
 
 ### Facts (39 tables)
 
@@ -62,7 +62,7 @@
 | `fact.itemwarehouse` | 372,326 | Inventory health (ageing, turnover, pareto) | Current snapshot |
 | `fact.opportunities` | 27,523 | SF opportunities | 2017+ |
 | `fact.opportunitylineitem` | 61,414 | SF opp line items (54.6% NULL Product Key) | 2017+ |
-| `fact.paymentpredictor` | 72,148 | Cash-out forecast (AP + open POs) | Rolling |
+| `fact.paymentpredictor` | ~1K | Cash flow lifecycle projection (rolling snapshot — 5 lifecycle buckets from PO to AP unpaid) | Rolling |
 | `fact.pickslips` | 502,779 | Warehouse pick operations | 2020+ |
 | `fact.preallocations` | 20,193 | Reserved against incoming supply | Current |
 | `fact.purchaseorders` | 379,367 | Inbound supply (POs + DOs) | 2017+ |
@@ -72,7 +72,7 @@
 | `fact.salesorders` | 1,021,233 | Orders, pipeline, fulfilment (core) | 2017+ (includes legacy ERP backfill) |
 | `fact.salestargets` | 6,455 | Sales targets by employee/month | 2023+ |
 | `fact.stocktransactions` | 890,237 | Stock movements (receipts, issues, adjustments) | 2017+ |
-| `fact.supplierpayments` | 56,283 | Payments to suppliers | 2024+ |
+| ~~`fact.supplierpayments`~~ | — | **Does not exist.** Use `fact.accountspayable` for supplier payment analysis | — |
 | `fact.customerpayments` | 68,195 | Payments from customers | 2024+ |
 | `fact.projectiondates` | 11,367 | Projection date reference | Current |
 | `fact.rebateclaims` | 2,891 | Rebate claims filed | 2024+ |
@@ -105,7 +105,7 @@ fact.generalledger gl
   JOIN dim.account a      ON gl.`Account Key` = a.`Account Key`
   JOIN dim.costcentre cc  ON gl.`Cost Centre Key` = cc.`Cost Centre Key`  -- 72% orphan rate (by design)
   JOIN dim.division d     ON gl.`Division Key` = d.`Division Key`
-  JOIN dim.calendar cal   ON gl.`Date Key` = cal.`Date Key`
+  JOIN dim.calendar cal   ON gl.`Accounting Date Key` = cal.`Date Key`  -- GL uses Accounting Date Key, NOT Date Key
 ```
 
 ### Salesforce Facts -> Dimensions (no CAST)
