@@ -8,7 +8,7 @@
       "name": "madison-bi-assistant",
       "source": "./madison-bi-assistant",
       "description": "Madison BI Assistant — multi-skill datawarehouse analysis, investigation, advanced analytics, finance (budget, AP, GL recon), and branded deliverables for Madison Group Enterprises",
-      "version": "3.3.0"
+      "version": "3.4.0"
     }
   ]
 }

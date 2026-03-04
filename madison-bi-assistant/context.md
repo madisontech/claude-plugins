@@ -30,7 +30,7 @@ Always resolve to business identifiers:
 
 ### Column Names
 All columns on `datawarehouse.*` views use **space-separated names with backtick quoting**:
-`` `Invoice Date Key` ``, `` `Product Key` ``, `` `Business Unit` ``. Never snake_case.
+`` `Invoice Date Key` ``, `` `Product Key` ``, `` `Product Business Unit` ``. Never snake_case.
 Every column reference must be backtick-quoted.
 
 ### Join Casting by Source System
@@ -83,6 +83,7 @@ WHERE gl.`Division Key` = 1  -- Division 100 (MGE Operating)
 Every fact-to-dim lookup wraps in `COALESCE(..., -1)`. No dimension has a -1 row.
 - **INNER JOIN** silently drops unmatched records (invoices have thousands of customer orphans; GL has >1M cost centre orphans)
 - **LEFT JOIN** preserves them — use LEFT JOIN by default, filter -1 only when deliberate
+- **Product Key = -1 on invoices:** These are Project Sales — invoices with a Project Code but no Product Code. Expected behaviour, not a data quality issue. Exclude from product-level analysis; include in total revenue/division analysis.
 
 ### Date Keys
 Format: INT `YYYYMMDD` (e.g., `20260303`). Join to `dim.calendar.`Date Key``.
@@ -334,7 +335,7 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 ### Core Dimensions
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `dim.product` | Product master (M3+SF merged) | `Product Key`, `Product Number`, `Business Unit` |
+| `dim.product` | Product master (M3+SF merged) | `Product Key`, `Product Number`, `Product Business Unit` |
 | `dim.customer` | Customer master (M3+SF merged) | `Customer Key`, `Customer Code`, `Customer Name`, `Payment Terms`, `Delivery Terms`, `Credit Limit1/2/3`, `Customer Stop`, `Wholesale Group` |
 | `dim.employee` | Salespeople + BU attribution | `Employee Key`, `Business Unit` (TRIM!) |
 | `dim.calendar` | Date dimension (FY Jul start) | `Date Key`, `Fiscal Year`, `Fiscal Year Label` |
@@ -360,3 +361,9 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | Reference AP ageing columns | No pre-computed ageing on AP | Same computed DATEDIFF pattern. AP dates (`Due Date`, `Invoice Date`) are STRING YYYYMMDD |
 | Display `Fiscal Year Label` as "FY25" | Actual format is "2024-2025" | Use `Fiscal Year Label` for display; `Fiscal Year` (INT) for filtering |
 | Filter GL with `Division = '100'` (string code) | Zero rows — GL uses integer surrogate `Division Key` | JOIN `dim.division` on `Division Key`, filter on `Division Code`, or use verified surrogate key |
+| Use `On Hand Qty` on itembalance | Column is `On Hand` (no Qty suffix) | `` `On Hand` `` for quantity, `` `OnHand Value` `` for value |
+| Use `LAST_DAY()` on inventoryhistory dates | Returns weekend/holiday with no snapshot row | `MAX(`Record Date`)` per year/month partition |
+| Join dim.supersessions without aggregation | Fan-out: one-to-many produces duplicate product rows | CTE: `FIRST(replacement) + COUNT(*)` per superseded product |
+| Assume PO has Exchange Rate column | Column doesn't exist on purchaseorders | FX via `dim.currency` join on `Currency Key` (compound format: "USD100") |
+| Use `'MCS'` for `Product Business Unit` filter | Silent miss — actual value is `'Madison Connectivity Solutions'` | Use full string or CASE WHEN mapping |
+| Assume inventoryhistory needs warehouse join for division | Unnecessary complexity | Table has own `Division` column (STRING) — filter directly |

@@ -27,13 +27,13 @@ ORDER BY Revenue DESC
 
 ```sql
 SELECT
-    TRIM(p.`Business Unit`) AS ProductBU,
-    SUM(ib.`On Hand Qty`) AS OnHandQty,
+    TRIM(p.`Product Business Unit`) AS ProductBU,
+    SUM(ib.`On Hand`) AS OnHandQty,
     SUM(ib.`OnHand Value`) AS OnHandValue
 FROM datawarehouse.fact.itembalance ib
 LEFT JOIN datawarehouse.dim.product p
     ON ib.`Product Key` = CAST(p.`Product Key` AS STRING)
-GROUP BY TRIM(p.`Business Unit`)
+GROUP BY TRIM(p.`Product Business Unit`)
 ORDER BY OnHandValue DESC
 ```
 

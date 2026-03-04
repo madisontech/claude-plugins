@@ -18,7 +18,7 @@
 | `dim.calendar` | 3,471 | Date dimension 2017-07-01 to 2026-12-31. FY July start. Key: `Date Key` (INT YYYYMMDD) |
 | `dim.case` | 5,741 | SF case records (support tickets) |
 | `dim.costcentre` | 72 | Cost centre lookup. 72% of GL entries have -1 (no cost centre) — by design |
-| `dim.currency` | 29 | ISO currency reference. `Currency Key` (STRING ISO code), `Currency Name`. Used by fact.currencyhistory for FX rates. AUD is base |
+| `dim.currency` | 29 | ISO currency reference. `Currency Key` (STRING ISO code), `Currency Name`, `Conversion Rate` (spot rate, foreign per 1 AUD). PO `Currency Key` is compound: "USD100" (currency+division). AUD is base |
 | `dim.customer` | ~10K | Customer master (M3+SF merged). Key fields: `Customer Key` (LONG), `Customer Code`, `Customer Name`, `Payment Terms`, `Delivery Terms`, `Credit Limit1`/`2`/`3`, `Customer Stop`, `Wholesale Group`, `Wholesale Branch`, `City`, `State`, `Country`, `Postcode`, `Account Owner`, `Business Unit`, `Is Active` |
 | `dim.customerpo` | 295,064 | Customer PO cross-reference (denormalised, large) |
 | `dim.division` | 10 | Legal entities. Codes 100-560 + 999 (dummy) |
@@ -27,7 +27,7 @@
 | `dim.location` | 2,107 | Warehouse bin locations |
 | ~~`dim.paymentterms`~~ | — | **Does not exist.** Payment terms are STRING fields on `dim.customer` and `dim.supplier` |
 | `dim.pricelist` | 104,771 | Customer price list (large, denormalised) |
-| `dim.product` | 72,479 | Product master (M3+SF merged). `Product Key` (LONG), `Product Number`, `Business Unit` (47% Unknown) |
+| `dim.product` | 72,479 | Product master (M3+SF merged). `Product Key` (LONG), `Product Number`, `Product Business Unit` (47% Unknown), `Brand` (UPPERCASE), `Product Status` (codes: 10=Preliminary, 20=Active, 50=Phase Out, 80=Old, 90=Discontinued) |
 | `dim.sfaccount` | 18,758 | Raw SF accounts (many without M3 match) |
 | `dim.supersessions` | ~2.5K | Product replacement bridge. `Product Key` (new) <-> `Superseded Key` (old). Only reliable mechanism |
 | `dim.supplier` | ~2K | Supplier master. Key fields: `Supplier Key` (BIGINT), `Supplier Code`, `Supplier Name`, `Supplier Country`, `Supplier Division`, `Supplier Status`, `Payment Terms`, `Delivery Terms`, `Is Active` |
@@ -133,6 +133,20 @@ fact.itembalance ib
 fact.itemwarehouse iw
   JOIN dim.product p      ON iw.`Product Key` = CAST(p.`Product Key` AS STRING)
   JOIN dim.warehouse w    ON iw.`Warehouse Key` = CAST(w.`Warehouse Key` AS STRING)
+
+-- inventoryhistory: has own Division column (STRING) + Record Date (DATE, not INT Date Key)
+-- Daily business-day snapshots. Use MAX(Record Date) per month, not LAST_DAY()
+fact.inventoryhistory ih
+  JOIN dim.product p      ON ih.`Product Key` = CAST(p.`Product Key` AS STRING)
+  -- Division filter: ih.Division = '100' (no warehouse join needed for division)
+  -- Date filter: ih.`Record Date` BETWEEN '2025-03-01' AND '2026-02-28'
+
+-- purchaseorders: Division is DECIMAL (not STRING). Currency Key is compound: "USD100"
+fact.purchaseorders po
+  JOIN dim.product p      ON po.`Product Key` = CAST(p.`Product Key` AS STRING)
+  LEFT JOIN dim.currency c ON po.`Currency Key` = c.`Currency Key`
+  -- Division filter: po.Division = 100 (DECIMAL, not '100')
+  -- FX: po.`Line Amount Orig` / c.`Conversion Rate` = AUD value (no Exchange Rate column on PO)
 ```
 
 ---
@@ -144,7 +158,7 @@ Valid: `MAV`, `MT`, `MEX`, `MCS`, `KPR`, `Other`, `Unknown`
 Invalid/system: `ZZZ`, `0`, `Slobs`, `MCT`, `MGE`, `KLL`, `COP`, `MNZ`
 **Critical:** `MT ` (with trailing space) exists on 14 employees. Always `TRIM()`.
 
-### dim.product.`Business Unit`
+### dim.product.`Product Business Unit`
 Values: `<Unknown>` (34K, 47%), `MadisonAV`, `Madison Technologies`, `Madison Express`,
 `Kallipr Pty Ltd`, `MCS` (3 variants), `KPR` (2 variants), `BLANK` (literal string)
 **Unreliable for precise BU filtering** — use employee BU for revenue attribution.
@@ -216,7 +230,7 @@ UnitCost = CASE M9VAMT
   WHEN 4 THEN weighted average cost (9 MCKOST buckets)
   ELSE appraised value
 END
-OnHand Value = On Hand Qty x UnitCost
+OnHand Value = On Hand x UnitCost
 ```
 WAC = sum(qty x cost_bucket) / sum(qty) across 9 MCKOST buckets at facility level.
 
