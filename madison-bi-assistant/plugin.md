@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 3.2.0
+**Version:** 3.5.0
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
@@ -99,23 +99,37 @@ Output: depends on mode selected.
 | `references/investigation.md` | ETL tracing, medallion architecture | investigate, initiate |
 | `references/advanced-analytics.md` | Statistical methods, Python patterns | analyse, initiate |
 | `references/output-standards.md` | Brand identity, chart rules, XLSX/DOCX/PPTX layout | format, initiate |
+| `references/python-environment.md` | Python execution, credentials, extraction tool | analyse, format, any script work |
+
+## Tools
+
+| File | Purpose | Invocation |
+|------|---------|------------|
+| `tools/dbx-extract.py` | Bulk data extraction to CSV | `uv run --script tools/dbx-extract.py --sql "..." --output path.csv` |
+
+Tools are standalone Python scripts with PEP 723 inline dependency metadata.
+Run via `uv run --script` for zero-config dependency management.
+See `references/python-environment.md` for environment setup and troubleshooting.
 
 ## File Manifest
 
 ```
 plugins/madison-bi-assistant/
-├── .claude-plugin/plugin.json          # Native plugin manifest (v3.2.0)
+├── .claude-plugin/plugin.json          # Native plugin manifest (v3.5.0)
 ├── .mcp.json                           # MCP server config (Databricks SQL)
 ├── plugin.md                           # This file — setup guide, skill index
 ├── CLAUDE.md                           # Plugin identity, disposition, quality gates
 ├── context.md                          # Canonical SQL rules, business context, 14 core tables
+├── tools/
+│   └── dbx-extract.py                  # Bulk extraction to CSV (PEP 723, uv run)
 ├── references/
 │   ├── query-patterns.md               # Verified SQL templates (revenue, inventory, AR, pipeline)
 │   ├── query-patterns-finance.md       # Finance SQL templates (budget, AP, DPO, GL recon)
 │   ├── schema-inventory.md             # Full 59-table inventory (on demand)
 │   ├── investigation.md                # ETL tracing, medallion architecture, control table
 │   ├── advanced-analytics.md           # Statistical methods, Python patterns
-│   └── output-standards.md             # Brand identity, chart rules, deliverable layout
+│   ├── output-standards.md             # Brand identity, chart rules, deliverable layout
+│   └── python-environment.md           # Python execution, credentials, extraction tool
 └── skills/
     ├── query/SKILL.md                  # Descriptive analysis
     ├── investigate/SKILL.md            # Discrepancy debugging

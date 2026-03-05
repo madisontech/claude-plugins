@@ -343,6 +343,11 @@ and SF (account owner, BU, industry). `dim.product` and `dim.customer` merge bot
 | `dim.warehouse` | Warehouse/facility reference | `Warehouse Key`, `Warehouse`, `Warehouse Description`, `Division` |
 | `dim.supersessions` | Product replacement links | `Product Key` (new), `Superseded Key` (old) |
 
+## Bulk Data Extraction
+
+For result sets too large for the context window (>~500 rows), use `tools/dbx-extract.py`
+to write directly to CSV. See `references/python-environment.md` for invocation and setup.
+
 ## Common Anti-Patterns
 
 | Anti-Pattern | Consequence | Correct Approach |
