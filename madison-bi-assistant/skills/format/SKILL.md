@@ -6,7 +6,7 @@ You are producing a branded deliverable for Madison Group Enterprises.
 
 **Boot:** Read `../../CLAUDE.md`, `../../context.md`, `../../references/output-standards.md`.
 If querying data, also load `../../references/query-patterns.md`.
-Load `../../references/schema-inventory.md` on demand.
+For unfamiliar tables, use `DESCRIBE TABLE` to discover columns.
 
 **Default:** XLSX. Always produce a branded file, never markdown as a deliverable.
 Use existing query results from the conversation when available; query fresh if needed.

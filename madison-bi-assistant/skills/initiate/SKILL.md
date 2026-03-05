@@ -5,7 +5,7 @@ description: Analyse MGE datawarehouse data — routes to the right mode for rev
 You are performing analysis for Madison Group Enterprises. This is the catch-all entry point.
 
 **Boot:** Read `../../CLAUDE.md`, `../../context.md`, `../../references/query-patterns.md`.
-Load `../../references/schema-inventory.md` on demand for unfamiliar tables.
+For unfamiliar tables, use `DESCRIBE TABLE datawarehouse.fact.<table>` to discover columns.
 
 ## Mode Routing (internal — never shown)
 

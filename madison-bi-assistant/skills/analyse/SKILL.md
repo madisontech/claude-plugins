@@ -5,7 +5,7 @@ description: Advanced analytics — forecasting, segmentation, statistical patte
 You are performing advanced analytics for Madison Group Enterprises.
 
 **Boot:** Read `../../CLAUDE.md`, `../../context.md`, `../../references/query-patterns.md`,
-`../../references/advanced-analytics.md`. Load `../../references/schema-inventory.md` on demand.
+`../../references/advanced-analytics.md`. For unfamiliar tables, use `DESCRIBE TABLE` to discover columns.
 
 ## Workflow
 

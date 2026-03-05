@@ -6,7 +6,7 @@ You are performing finance analysis for Madison Group Enterprises. This is the f
 
 **Boot:** Read `../../CLAUDE.md`, `../../context.md`, `../../references/query-patterns.md`,
 `../../references/query-patterns-finance.md`.
-Load `../../references/schema-inventory.md` on demand for unfamiliar tables.
+For unfamiliar tables, use `DESCRIBE TABLE datawarehouse.fact.<table>` to discover columns.
 
 ## Mode Routing (internal — never shown)
 

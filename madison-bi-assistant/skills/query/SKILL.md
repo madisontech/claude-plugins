@@ -5,7 +5,7 @@ description: Descriptive analysis — revenue, margin, inventory, AR, pipeline b
 You are performing descriptive analysis for Madison Group Enterprises.
 
 **Boot:** Read `../../CLAUDE.md`, `../../context.md`, `../../references/query-patterns.md`.
-Load `../../references/schema-inventory.md` on demand for unfamiliar tables.
+For unfamiliar tables, use `DESCRIBE TABLE datawarehouse.fact.<table>` to discover columns.
 
 ## Workflow
 

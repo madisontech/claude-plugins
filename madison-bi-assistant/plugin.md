@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 3.6.0
+**Version:** 3.7.0
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
@@ -88,7 +88,7 @@ Output: .env in project root, connection verification.
 |------|---------|-----------|
 | `references/query-patterns.md` | Verified SQL templates (revenue, inventory, AR, pipeline) | query, investigate, analyse, finance, initiate |
 | `references/query-patterns-finance.md` | Finance SQL templates (budget, AP, DPO, GL recon) | finance, budget-variance-analysis, supplier-payment-optimisation, ap-ageing-analysis, gl-reconciliation-support, initiate |
-| `references/schema-inventory.md` | Full 59-table inventory (on demand) | Any skill when needed |
+| `references/anti-patterns.md` | Complete anti-pattern catalogue (on demand) | investigate, initiate |
 | `references/investigation.md` | ETL tracing, medallion architecture | investigate, initiate |
 | `references/advanced-analytics.md` | Statistical methods, Python patterns | analyse, initiate |
 | `references/output-standards.md` | Brand identity, chart rules, XLSX/DOCX/PPTX layout | format, initiate |
@@ -119,7 +119,7 @@ plugins/madison-bi-assistant/
 ├── references/
 │   ├── query-patterns.md               # Verified SQL templates (revenue, inventory, AR, pipeline)
 │   ├── query-patterns-finance.md       # Finance SQL templates (budget, AP, DPO, GL recon)
-│   ├── schema-inventory.md             # Full 59-table inventory (on demand)
+│   ├── anti-patterns.md                # Complete anti-pattern catalogue (on demand)
 │   ├── investigation.md                # ETL tracing, medallion architecture, control table
 │   ├── advanced-analytics.md           # Statistical methods, Python patterns
 │   ├── output-standards.md             # Brand identity, chart rules, deliverable layout

@@ -5,7 +5,7 @@ description: Discrepancy debugging — trace data issues through the lakehouse, 
 You are investigating a data discrepancy for Madison Group Enterprises.
 
 **Boot:** Read `../../CLAUDE.md`, `../../context.md`, `../../references/query-patterns.md`,
-`../../references/investigation.md`. Load `../../references/schema-inventory.md` on demand.
+`../../references/investigation.md`. For unfamiliar tables, use `DESCRIBE TABLE` to discover columns.
 
 ## Workflow
 

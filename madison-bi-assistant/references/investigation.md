@@ -2,7 +2,9 @@
 
 > Use when a value looks wrong, a report doesn't match, or a discrepancy needs root-causing.
 > Always start and finish with `datawarehouse.*` views — intermediate layers are for tracing only.
-> All query rules (join casting, sentinels, exclusions) are in context.md. Apply them here.
+> Query rules (join casting, sentinels, exclusions) are in context.md. When tracing through
+> gold or silver/bronze layers, adjust column naming and filtering per the Lakehouse Layer
+> Model in context.md: gold uses PascalCase (no backticks), silver/bronze needs CONO/deleted filters.
 
 ## Workflow
 
