@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "databricks-sql": {
+      "type": "http",
+      "url": "https://adb-6242187004665047.7.azuredatabricks.net/api/2.0/mcp/sql",
+      "headers": {
+        "Authorization": "Bearer ${DATABRICKS_ACCESS_TOKEN}"
+      }
+    }
+  }
+}

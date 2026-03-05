@@ -1,2 +1,3 @@
-# MCP configs contain credentials - use .mcp.json.example as template
-**/.mcp.json
+# Credentials and local-only files
+**/.env
+**/*.local.*

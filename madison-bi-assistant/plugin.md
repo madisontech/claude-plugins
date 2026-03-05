@@ -1,6 +1,6 @@
 # Madison BI Assistant
 
-**Version:** 3.5.0
+**Version:** 3.6.0
 **Plugin directory:** `plugins/madison-bi-assistant/`
 
 ## Setup
@@ -8,21 +8,9 @@
 ### MCP Servers (enabled on demand)
 
 **Databricks SQL** — HTTP transport to Databricks SQL endpoint.
-Configure in `.mcp.json` with your workspace URL and auth token:
-
-```json
-{
-  "mcpServers": {
-    "databricks-sql": {
-      "type": "http",
-      "url": "https://<workspace>.azuredatabricks.net/api/2.0/mcp/sql",
-      "headers": {
-        "Authorization": "Bearer <token>"
-      }
-    }
-  }
-}
-```
+The plugin ships with `.mcp.json` pre-configured for the Madison Databricks workspace.
+It uses `${DATABRICKS_ACCESS_TOKEN}` env var expansion for authentication.
+Run `/setup` on first use to configure your credentials.
 
 Tools: `execute_sql_read_only` (all analysis), `execute_sql` (DDL/DML, rare),
 `poll_sql_result` (long-running queries).
@@ -89,6 +77,11 @@ Any question that doesn't obviously map to a specific skill.
 Loads: CLAUDE.md + context.md + query-patterns.md, then additional refs after routing.
 Output: depends on mode selected.
 
+### `/setup` — First-Time Setup
+Configures Databricks credentials and verifies connectivity.
+Loads: plugin.md + .env.example.
+Output: .env in project root, connection verification.
+
 ## Shared References (on-demand)
 
 | File | Purpose | Loaded By |
@@ -115,8 +108,9 @@ See `references/python-environment.md` for environment setup and troubleshooting
 
 ```
 plugins/madison-bi-assistant/
-├── .claude-plugin/plugin.json          # Native plugin manifest (v3.5.0)
-├── .mcp.json                           # MCP server config (Databricks SQL)
+├── .claude-plugin/plugin.json          # Native plugin manifest (v3.6.0)
+├── .mcp.json                           # MCP server config (env var expansion)
+├── .env.example                        # Credential template (copy to project root)
 ├── plugin.md                           # This file — setup guide, skill index
 ├── CLAUDE.md                           # Plugin identity, disposition, quality gates
 ├── context.md                          # Canonical SQL rules, business context, 14 core tables
@@ -140,5 +134,6 @@ plugins/madison-bi-assistant/
     ├── supplier-payment-optimisation/SKILL.md   # DPO, term extension, cash flow
     ├── ap-ageing-analysis/SKILL.md              # AP ageing, concentration, DPO trend
     ├── gl-reconciliation-support/SKILL.md       # GL-to-subledger reconciliation
-    └── initiate/SKILL.md               # Catch-all router
+    ├── initiate/SKILL.md               # Catch-all router
+    └── setup/SKILL.md                 # First-time setup
 ```
